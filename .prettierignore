@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+package-lock.json
+supabase/.temp/
+
+# Generated from the database schema, never hand edited or reformatted.
+apps/web/src/types/database.ts
