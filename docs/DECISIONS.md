@@ -150,3 +150,52 @@ shadcn primitives under `src/components/ui` are exempt from
 `react-refresh/only-export-components`, because several of them export a variants helper
 next to the component and editing generated files to satisfy a developer experience rule
 is the wrong trade.
+
+---
+
+## ADR-0007 - Policy helpers live in an authz schema, not in auth
+
+**Status:** accepted, 2026-09-20
+
+**Context.** The data model called for `auth.current_user_org_ids()`, a security definer
+helper that every row level security policy calls instead of running a membership subquery
+per row. Creating it failed: `permission denied for schema auth`. Supabase owns that schema
+and the migration role has no CREATE on it. This is not a local quirk, it is how hosted
+projects are configured, so working around it locally would only move the failure to
+deployment.
+
+**Decision.** Put the helpers in a dedicated `authz` schema: `current_user_org_ids`,
+`has_org_role`, `can_read_project`, `can_write_project`.
+
+**Consequences.** The policies read `authz.` rather than `auth.`, which is a cosmetic loss
+and an isolation gain. `authz` is deliberately absent from the PostgREST exposed schema
+list in `supabase/config.toml`, so no client can call these functions directly even though
+policies evaluate them on the client's behalf. `authenticated` holds EXECUTE on them
+because a policy is evaluated as the querying role, and that grant is the minimum that
+makes the policies work. There is a test asserting the schema is unreachable over REST.
+
+The same config change exposes `api`, which is intended: that schema is the dashboard's
+read surface. `jobs` is exposed to nobody.
+
+---
+
+## ADR-0008 - React Router in declarative mode
+
+**Status:** accepted, 2026-09-20
+
+**Context.** The brief allowed either TanStack Router or React Router. React Router also
+offers a data router with loaders and actions.
+
+**Decision.** React Router, declarative mode: `BrowserRouter` with `Routes` and `Route`.
+No loaders, no actions.
+
+**Why.** TanStack Query owns all server state in this project. A router loader that also
+fetches creates a second cache with its own staleness rules, and the two disagree: the
+loader refetches on navigation while the query cache considers the data fresh, or the
+reverse. One owner of server state is worth more here than typed route params, especially
+since this app has one dynamic segment, `:projectId`.
+
+**Consequences.** Route parameters are typed by hand through `useParams<{ projectId: string }>()`
+rather than inferred. Data fetching starts on render rather than on navigation, which costs
+a frame on a cold route and is not measurable against a network round trip. If route level
+code splitting becomes necessary, `React.lazy` covers it without changing this decision.

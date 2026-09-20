@@ -2,129 +2,231 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/* ==========================================================================
+   Instrument - the design token file.
+   ==========================================================================
+
+   This is the only file in the repository allowed to contain a hex literal.
+   Anything that needs a colour reads a token from here, including chart code,
+   which pulls the computed custom property rather than hardcoding a value.
+
+   Tailwind v4 has no JavaScript config, so tokens are CSS custom properties
+   and the @theme block below is what turns them into utility classes. See
+   ADR-0004.
+
+   Light and dark are written by hand and are equally first class. Dark is not
+   the light palette inverted: the accent and every chart series has its own
+   value, because #10656B on a near-black canvas is mud.
+   ========================================================================== */
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-foreground: var(--foreground);
+
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Status. Semantic only: a state the user can act on, never decoration. */
+  --color-ok: var(--ok);
+  --color-ok-foreground: var(--ok-foreground);
+  --color-warn: var(--warn);
+  --color-warn-foreground: var(--warn-foreground);
+  --color-danger: var(--destructive);
+  --color-danger-foreground: var(--destructive-foreground);
+
+  /* Data. Deliberately separate from the interactive accent above, so that
+       colour never means "clickable" and "series three" at the same time. */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* One small radius on everything. Not the 12px consumer-software look. */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.375rem; /* 6px */
+
+  --background: #f5f6f8;
+  --foreground: #14181d;
+  --card: #ffffff;
+  --card-foreground: #14181d;
+  --popover: #ffffff;
+  --popover-foreground: #14181d;
+
+  /* Petrol teal. Interactive affordances only. */
+  --primary: #10656b;
+  --primary-foreground: #ffffff;
+
+  --secondary: #edeff2;
+  --secondary-foreground: #14181d;
+  --muted: #edeff2;
+  --muted-foreground: #5e6773;
+  --accent: #e7eaee;
+  --accent-foreground: #14181d;
+
+  --destructive: #c23a33;
+  --destructive-foreground: #ffffff;
+  --ok: #2f7d4f;
+  --ok-foreground: #ffffff;
+  --warn: #a96410;
+  --warn-foreground: #ffffff;
+
+  --border: #dfe3e8;
+  --input: #dfe3e8;
+  --ring: #10656b;
+
+  --chart-1: #1f8a8a;
+  --chart-2: #e0821c;
+  --chart-3: #7b5bd6;
+  --chart-4: #d64570;
+  --chart-5: #4c8df6;
+  --chart-6: #6e8f2e;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #14181d;
+  --sidebar-primary: #10656b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #edeff2;
+  --sidebar-accent-foreground: #14181d;
+  --sidebar-border: #dfe3e8;
+  --sidebar-ring: #10656b;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #0d1013;
+  --foreground: #e6eaee;
+  --card: #161a1e;
+  --card-foreground: #e6eaee;
+  --popover: #161a1e;
+  --popover-foreground: #e6eaee;
+
+  /* A different colour, not the light accent lightened. */
+  --primary: #3fb8b2;
+  --primary-foreground: #0d1013;
+
+  --secondary: #1d2228;
+  --secondary-foreground: #e6eaee;
+  --muted: #1d2228;
+  --muted-foreground: #8d97a3;
+  --accent: #222930;
+  --accent-foreground: #e6eaee;
+
+  --destructive: #e4655c;
+  --destructive-foreground: #0d1013;
+  --ok: #4caf72;
+  --ok-foreground: #0d1013;
+  --warn: #d9932f;
+  --warn-foreground: #0d1013;
+
+  --border: #262c33;
+  --input: #262c33;
+  --ring: #3fb8b2;
+
+  --chart-1: #37a8a8;
+  --chart-2: #f0a04b;
+  --chart-3: #9b81e8;
+  --chart-4: #e8738c;
+  --chart-5: #6fa6ff;
+  --chart-6: #8fb349;
+
+  --sidebar: #161a1e;
+  --sidebar-foreground: #e6eaee;
+  --sidebar-primary: #3fb8b2;
+  --sidebar-primary-foreground: #0d1013;
+  --sidebar-accent: #222930;
+  --sidebar-accent-foreground: #e6eaee;
+  --sidebar-border: #262c33;
+  --sidebar-ring: #3fb8b2;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Every number in the product, including numbers inside prose. Columns of
+       figures must not jitter when a live value updates. */
+  .tabular,
+  [data-numeric],
+  th[data-numeric],
+  td[data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Motion happens in response to a user action, or not at all. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The structural signature: a 2px accent rule on the left edge of the
+       active navigation item. Nothing else in the product uses a left rule,
+       so it means exactly one thing. */
+  .nav-active {
+    box-shadow: inset 2px 0 0 0 var(--primary);
+  }
+
+  /* Values, not labels. Applied to KPI numbers and numeric table cells. */
+  .value {
+    @apply font-mono;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 }

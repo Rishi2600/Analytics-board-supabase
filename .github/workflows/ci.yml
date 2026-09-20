@@ -47,3 +47,34 @@ jobs:
       # done item that says no service role key reaches the browser.
       - name: Check the bundle for secret material
         run: ./scripts/check-bundle-secrets.sh apps/web/dist
+
+  database:
+    name: Row level security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Applies every migration in order against a fresh database, so a migration that
+      # only works on a database that already had the previous state fails here.
+      - name: Start the Supabase stack
+        run: npx supabase start
+
+      # The test that matters most in this repository: two organizations cannot see each
+      # other's data, asserted with real sessions rather than by reading the policies.
+      - name: Row level security and tenancy tests
+        run: npm run test:db
+
+      - name: Stop the Supabase stack
+        if: always()
+        run: npx supabase stop --no-backup
