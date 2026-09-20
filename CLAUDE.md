@@ -105,41 +105,58 @@ Load the relevant skill before the work it governs:
 
 ## Current state
 
-Phase 0 - Foundation. Complete.
+All twelve phases are complete. Last updated at the end of phase 12.
 
-Done:
+### What exists
 
-- Operating rules and the three skill files, written before any code.
-- ADR-0001 through ADR-0006 in `docs/DECISIONS.md`.
-- npm workspaces at the root, with `apps/web` scaffolded from create-vite 9:
-  React 19.2, TypeScript 6 with `strict` and `noUncheckedIndexedAccess` set explicitly,
-  Vite 8.
-- Tailwind v4.3 through `@tailwindcss/vite`. The single token file is
-  `apps/web/src/index.css`, because v4 has no JavaScript config. See ADR-0004.
-- shadcn/ui initialised with the Radix base and the Nova preset, which is the Lucide and
-  Geist combination the design direction calls for.
-- ESLint 10 flat config at the root with type aware rules, replacing the oxlint the
-  template now ships. Prettier with the Tailwind class sorting plugin. See ADR-0006.
-- Vitest with jsdom and Testing Library. Two smoke tests that prove the toolchain and the
-  `@` alias resolve.
-- GitHub Actions CI running lint, format check, typecheck, test, build, and a check that
-  no service role or secret key material reached the built bundle.
-- `.env.example` documenting every variable, including which ones may be public and why.
+- **Database**: 12 migrations. 22 tables in `public`, every one with row level security
+  enabled. Four have RLS and deliberately zero policies, each with a SQL comment saying
+  why: `api_key_secrets`, `rate_limit_buckets`, `query_cache`, `rollup_state`.
+- **Schemas**: `public` for tables, `api` for the 14 read facing functions the dashboard
+  calls, `jobs` for rollups and pruning, `authz` for the helpers policies evaluate.
+- **Ingestion**: `supabase/functions/ingest`, all nine processing steps.
+- **Exports**: `export-run` assembles files, `export-download` signs 15 minute URLs and
+  audits every download.
+- **Jobs**: rollups every 5 minutes, daily rollups hourly, cache sweep hourly, event
+  pruning and export expiry nightly. All registered by migrations, not by hand.
+- **SDK**: `packages/sdk`, 1801 bytes gzipped against a 5120 byte budget that a script
+  enforces.
+- **Dashboard**: 10 screens. Every data surface has a skeleton, an empty state and an
+  error state.
+- **Tests**: 28 unit, 63 database and integration, 5 Playwright. All passing.
 
-Next up:
+### Measured, not assumed
 
-- Phase 1, Supabase base and auth: link the project, migration 001 for organizations,
-  members, projects and invites with full row level security, the
-  `auth.current_user_org_ids()` helper, generated types, magic link and GitHub OAuth,
-  protected routes, and onboarding. Load `.claude/skills/supabase/SKILL.md` first.
+Against 1,000,127 seeded events: `summary` 169ms, `funnel` 170ms, `retention` 73ms,
+`timeseries` 12ms, everything else under 5ms. Plans in `docs/measurements/`. Rollup totals
+equal raw event counts exactly.
 
-Known gaps, deliberate at this point:
+### Known gaps, all deliberate
 
-- No Supabase project linked, no migrations, no generated `types/database.ts`.
-- `apps/web/src/App.tsx` is a placeholder. The shell, routing and theming are phase 2 and
-  come after the design pass in `docs/DESIGN_SYSTEM.md`.
-- The shadcn token values in `index.css` are still the neutral defaults. The Instrument
-  palette replaces them in phase 2.
-- `packages/sdk` and `supabase/` hold no code yet. `supabase/functions` is excluded from
-  ESLint until phase 4 gives it a Deno specific configuration.
-- README has no working `curl` example yet. It cannot have one until phase 4.
+- **Multi-property filters** in the explorer. One property filter at a time, served from
+  `rollup_property_daily`. Several at once needs a rollup per combination of properties,
+  which is the cardinality problem this design exists to avoid. Trigger for revisiting is
+  in `docs/ARCHITECTURE.md`.
+- **Funnels and retention read `events_raw`** rather than rollups, because a conversion
+  window depends on the gap between two individual events and aggregates have thrown that
+  away. Bounded by a date range, an index, and the retention window. See ADR-0009.
+- **`api.timeseries` filtered by a property** returns day grain only, because the property
+  rollup is daily.
+- **Daily session counts in `rollup_events_daily`** are summed from hourly rows and so
+  slightly overstate sessions crossing midnight. The headline number on the overview screen
+  does not use it: that reads `session_activity_daily` and is exact. See ADR-0010.
+- **No billing, plan limits or quotas.** The rate limiter is per key and global.
+- **No scheduled or emailed reports.** The export pipeline exists; the schedule does not.
+- **`apps/web/src/types/database.ts` includes the `jobs` schema**, because tests and Edge
+  Functions call it. The type describes the database; the grants decide who may call what.
+
+### If you are picking this up cold
+
+1. `npx supabase start`, then `node scripts/bootstrap-demo.ts`.
+2. Read `docs/SUPABASE_GUIDE.md` if the stack is new to you. It uses this project as the
+   worked example throughout.
+3. `npm run verify` before every commit. `npm run test:db` needs the stack running.
+4. Regenerate types after every migration: `npm run db:types`. Stale types produce
+   confusing errors that look like code bugs.
+5. Changing `supabase/config.toml` needs `supabase stop && supabase start`. A `db reset`
+   will not pick it up.

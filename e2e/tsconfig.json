@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "types": ["node"],
@@ -13,14 +13,7 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
-    "erasableSyntaxOnly": true,
-    "resolveJsonModule": true,
-    "allowImportingTsExtensions": true
+    "erasableSyntaxOnly": true
   },
-  "include": [
-    "tests/**/*.ts",
-    "scripts/**/*.ts",
-    "vitest.integration.config.ts",
-    "playwright.config.ts"
-  ]
+  "include": ["**/*.ts"]
 }

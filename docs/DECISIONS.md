@@ -199,3 +199,72 @@ since this app has one dynamic segment, `:projectId`.
 rather than inferred. Data fetching starts on render rather than on navigation, which costs
 a frame on a cold route and is not measurable against a network round trip. If route level
 code splitting becomes necessary, `React.lazy` covers it without changing this decision.
+
+---
+
+## ADR-0009 - Funnels and retention read events_raw
+
+**Status:** accepted, 2026-09-21
+
+**Context.** The build rules say dashboard screens must not query `events_raw`, and that
+`api.live_events` is the only function allowed to read it. Both funnels and retention were
+also required features. Those two constraints cannot both hold.
+
+A funnel asks: _did this user do B within one hour of doing A?_ The answer depends on the
+interval between two individual events belonging to the same person. Time-bucketed
+aggregates have destroyed that information by construction. Once events are counted per
+hour, the gap between two of them inside the bucket does not exist anywhere. No rollup
+shape recovers it, because the rollup is a sum and the question is about ordering.
+
+Retention has the same shape: a user's cohort is the period of their _first_ qualifying
+event, which requires knowing which event was first.
+
+**Decision.** `api.funnel` and `api.retention` read `events_raw`. Every other read path
+uses rollups.
+
+**How the cost is bounded rather than ignored.**
+
+- Both take an explicit date range and neither has an unbounded default.
+- Both are served by a dedicated index on
+  `(project_id, distinct_id, event_name, ts)`, added for exactly this purpose. Without it a
+  four step funnel over a million events took 1349ms; with it, 170ms.
+- Both are naturally limited by the project's raw retention window, so the table they scan
+  cannot grow without limit.
+- Funnels are capped at eight steps.
+
+**Consequences.** These two screens degrade differently from the rest of the product: they
+get slower as raw event volume grows, where the rollup-backed screens do not. That is the
+trade, and the deferred section of `docs/ARCHITECTURE.md` records what we would do about it
+(a columnar store, or a precomputed step table) and the trigger.
+
+The narrower rule, the one actually worth enforcing, survives intact: **no screen assembles
+its own query against `events_raw`.** Access goes through three named functions whose costs
+are understood, rather than through whatever a component author writes.
+
+---
+
+## ADR-0010 - Session counts get their own membership table
+
+**Status:** accepted, 2026-09-21
+
+**Context.** The rollup design carried a `session_count` on each hourly row, and "Sessions"
+is one of the four headline numbers on the overview screen. Summing that column across
+hours is wrong: a session running from 10:55 to 11:05 appears in two hourly buckets and is
+counted twice. On the seeded data this overstated sessions by roughly 15%.
+
+This is the same non-additivity that `user_activity_daily` already existed to solve for
+unique users. It was simply not applied to sessions.
+
+**Decision.** Add `session_activity_daily`, one row per session per day it was active, and
+compute the headline session count as a distinct count over it.
+
+**Why not accept the approximation.** A headline number that is quietly 15% too high is
+worse than no number. The customer's first instinct on seeing a figure they doubt is to
+check it against their own database, and when it fails to match, every other number on the
+screen becomes suspect too. Being 15% wrong costs more credibility than the feature was
+ever worth.
+
+**Consequences.** One more table, one more delete-and-insert per touched day in the rollup
+job, and a row count proportional to sessions rather than events, which is roughly an order
+of magnitude smaller than `events_raw`. `rollup_events_hourly.session_count` is kept,
+because it is correct _within_ an hour and is what the hourly-grain chart uses.

@@ -46,7 +46,7 @@ jobs:
       # The dashboard bundle is public. This is the automated half of the definition of
       # done item that says no service role key reaches the browser.
       - name: Check the bundle for secret material
-        run: ./scripts/check-bundle-secrets.sh apps/web/dist
+        run: node ./scripts/check-bundle-secrets.mjs apps/web/dist
 
   database:
     name: Row level security
@@ -74,6 +74,49 @@ jobs:
       # other's data, asserted with real sessions rather than by reading the policies.
       - name: Row level security and tenancy tests
         run: npm run test:db
+
+      - name: Stop the Supabase stack
+        if: always()
+        run: npx supabase stop --no-backup
+
+  e2e:
+    name: End to end
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start the Supabase stack
+        run: npx supabase start
+
+      # Three flows where a failure is invisible to unit tests and fatal to the product:
+      # signing in with a magic link, creating a key that is shown exactly once, and an
+      # event travelling from the API to the live screen over Realtime.
+      - name: Playwright
+        run: npm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload the report when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Stop the Supabase stack
         if: always()

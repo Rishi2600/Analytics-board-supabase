@@ -39,6 +39,10 @@ export function LiveRoute() {
 
   const [streamed, setStreamed] = useState<LiveEvent[]>([])
   const [paused, setPaused] = useState(false)
+  // "Listening" has to mean the websocket is actually subscribed, not that the component
+  // rendered. Otherwise someone whose connection failed sits watching a healthy looking
+  // header that will never show an event.
+  const [connection, setConnection] = useState<'connecting' | 'live' | 'error'>('connecting')
   const [filter, setFilter] = useState('')
   const [inspecting, setInspecting] = useState<LiveEvent | null>(null)
   // The realtime callback is created once when the subscription is set up, so it would
@@ -71,9 +75,17 @@ export function LiveRoute() {
           setStreamed((previous) => [payload.new as LiveEvent, ...previous].slice(0, MAX_ROWS))
         },
       )
-      .subscribe()
+      .subscribe((status) => {
+        // supabase-js types this as an enum, so it is compared by value rather than
+        // against string literals the enum does not share a type with.
+        const state = String(status)
+        if (state === 'SUBSCRIBED') setConnection('live')
+        else if (state === 'CHANNEL_ERROR' || state === 'TIMED_OUT') setConnection('error')
+        else setConnection('connecting')
+      })
 
     return () => {
+      setConnection('connecting')
       void supabase.removeChannel(channel)
     }
   }, [projectId])
@@ -137,7 +149,20 @@ export function LiveRoute() {
                   : 'size-2 animate-pulse rounded-full bg-ok'
               }
             />
-            <h2 className="text-sm font-medium">{paused ? 'Paused' : 'Listening'}</h2>
+            <h2 className="text-sm font-medium">
+              {paused
+                ? 'Paused'
+                : connection === 'live'
+                  ? 'Listening'
+                  : connection === 'error'
+                    ? 'Reconnecting'
+                    : 'Connecting'}
+            </h2>
+            {connection === 'error' ? (
+              <span className="text-xs text-muted-foreground">
+                The live connection dropped. Recent events still load when you refresh.
+              </span>
+            ) : null}
             <span className="ml-auto text-xs text-muted-foreground">
               {rows.length} event{rows.length === 1 ? '' : 's'}
             </span>
