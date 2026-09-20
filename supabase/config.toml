@@ -10,10 +10,17 @@ enabled = true
 port = 54321
 # Schemas to expose in your API. Tables, views and stored procedures in this schema will get API
 # endpoints. `public` and `graphql_public` schemas are included by default.
-# "api" holds the read facing functions the dashboard calls with rpc(). The "authz" and
-# "jobs" schemas are deliberately absent: authz holds the helpers policies evaluate, and
-# jobs holds the rollup and pruning routines. Neither should ever be reachable by a client.
-schemas = ["public", "graphql_public", "api"]
+# "api" holds the read facing functions the dashboard calls with rpc().
+#
+# "jobs" is listed because PostgREST schema exposure is global rather than per role, and
+# the ingest and export Edge Functions reach their routines through PostgREST under the
+# service role. Listing it here does not make it reachable: anon and authenticated hold no
+# USAGE on the schema, so every call from a dashboard client fails regardless. The grant is
+# the lock; this list is only the door. There is a test asserting exactly that.
+#
+# "authz" stays absent. Policies evaluate its helpers on the caller's behalf and no client
+# ever needs to call one directly.
+schemas = ["public", "graphql_public", "api", "jobs"]
 # Extra schemas to add to the search_path of every request.
 extra_search_path = ["public", "extensions"]
 # The maximum number of rows returns from a view, table, or stored procedure. Limits payload size
@@ -416,3 +423,12 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# The ingestion endpoint authenticates with our own project API keys (pk_live_ / sk_live_),
+# not with a Supabase user JWT. Leaving the platform's JWT check on would reject every
+# request before our own key verification ever runs.
+#
+# This is not a hole: the function's first action is to resolve the presented key against a
+# salted hash and refuse anything it does not recognise.
+[functions.ingest]
+verify_jwt = false

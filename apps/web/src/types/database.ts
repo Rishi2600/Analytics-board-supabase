@@ -16,10 +16,35 @@ export type Database = {
     }
     Functions: {
       accept_invite: { Args: { p_token: string }; Returns: string }
+      create_api_key: {
+        Args: { p_key_type?: string; p_name: string; p_project_id: string }
+        Returns: {
+          api_key: string
+          id: string
+          key_prefix: string
+        }[]
+      }
+      create_invite: {
+        Args: { p_email: string; p_org_id: string; p_role: string }
+        Returns: {
+          invite_id: string
+          token: string
+        }[]
+      }
       create_organization: {
         Args: { p_name: string; p_slug?: string }
         Returns: string
       }
+      list_org_members: {
+        Args: { p_org_id: string }
+        Returns: {
+          created_at: string
+          email: string
+          role: string
+          user_id: string
+        }[]
+      }
+      revoke_api_key: { Args: { p_key_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
@@ -30,6 +55,76 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_key_secrets: {
+        Row: {
+          api_key_id: string
+          key_hash: string
+          salt: string
+        }
+        Insert: {
+          api_key_id: string
+          key_hash: string
+          salt: string
+        }
+        Update: {
+          api_key_id?: string
+          key_hash?: string
+          salt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_secrets_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: true
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      api_keys: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          key_prefix: string
+          key_type: string
+          last_used_at: string | null
+          name: string
+          project_id: string
+          revoked_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_prefix: string
+          key_type: string
+          last_used_at?: string | null
+          name: string
+          project_id: string
+          revoked_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          key_prefix?: string
+          key_type?: string
+          last_used_at?: string | null
+          name?: string
+          project_id?: string
+          revoked_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -67,6 +162,130 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events_raw: {
+        Row: {
+          context: Json
+          distinct_id: string
+          event_name: string
+          id: string
+          ingest_id: string | null
+          ip_hash: string | null
+          project_id: string
+          properties: Json
+          received_at: string
+          session_id: string | null
+          ts: string
+        }
+        Insert: {
+          context?: Json
+          distinct_id: string
+          event_name: string
+          id?: string
+          ingest_id?: string | null
+          ip_hash?: string | null
+          project_id: string
+          properties?: Json
+          received_at?: string
+          session_id?: string | null
+          ts: string
+        }
+        Update: {
+          context?: Json
+          distinct_id?: string
+          event_name?: string
+          id?: string
+          ingest_id?: string | null
+          ip_hash?: string | null
+          project_id?: string
+          properties?: Json
+          received_at?: string
+          session_id?: string | null
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_raw_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events_rejected: {
+        Row: {
+          api_key_id: string | null
+          detail: string | null
+          id: string
+          project_id: string | null
+          raw_payload: Json | null
+          reason: string
+          received_at: string
+        }
+        Insert: {
+          api_key_id?: string | null
+          detail?: string | null
+          id?: string
+          project_id?: string | null
+          raw_payload?: Json | null
+          reason: string
+          received_at?: string
+        }
+        Update: {
+          api_key_id?: string | null
+          detail?: string | null
+          id?: string
+          project_id?: string | null
+          raw_payload?: Json | null
+          reason?: string
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_rejected_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_rejected_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      indexed_properties: {
+        Row: {
+          enabled: boolean
+          first_seen_at: string
+          project_id: string
+          prop_key: string
+        }
+        Insert: {
+          enabled?: boolean
+          first_seen_at?: string
+          project_id: string
+          prop_key: string
+        }
+        Update: {
+          enabled?: boolean
+          first_seen_at?: string
+          project_id?: string
+          prop_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "indexed_properties_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -208,6 +427,32 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rate_limit_buckets: {
+        Row: {
+          api_key_id: string
+          tokens: number
+          window_start: string
+        }
+        Insert: {
+          api_key_id: string
+          tokens?: number
+          window_start?: string
+        }
+        Update: {
+          api_key_id?: string
+          tokens?: number
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_limit_buckets_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: true
+            referencedRelation: "api_keys"
             referencedColumns: ["id"]
           },
         ]

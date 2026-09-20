@@ -247,6 +247,29 @@ describe('structural guarantees', () => {
     expect(attempt.error?.message).toContain('unknown timezone')
   })
 
+  it('does not let a dashboard client reach the jobs schema', async () => {
+    // jobs is listed in the PostgREST exposed schemas because the Edge Functions reach it
+    // under the service role, and that list is global rather than per role. What keeps a
+    // dashboard client out is the absence of USAGE on the schema. This asserts the lock
+    // rather than trusting the door.
+    const { apiUrl, anonKey } = localStack()
+
+    for (const routine of ['ingest_batch', 'verify_api_key', 'consume_rate_limit', 'write_audit']) {
+      const response = await fetch(`${apiUrl}/rest/v1/rpc/${routine}`, {
+        method: 'POST',
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${alice.accessToken}`,
+          'Content-Type': 'application/json',
+          'Accept-Profile': 'jobs',
+          'Content-Profile': 'jobs',
+        },
+        body: '{}',
+      })
+      expect(response.ok, `jobs.${routine} must not be callable by a signed-in user`).toBe(false)
+    }
+  })
+
   it('does not expose the policy helper schema through the API', async () => {
     // authz.current_user_org_ids() is what every policy calls. It is kept out of the
     // PostgREST exposed schema list so the reachable surface stays the tables plus the api

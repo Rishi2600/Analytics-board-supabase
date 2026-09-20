@@ -5,6 +5,7 @@ export interface LocalStack {
   anonKey: string
   serviceRoleKey: string
   dbUrl: string
+  functionsUrl: string
 }
 
 let cached: LocalStack | undefined
@@ -35,13 +36,14 @@ export function localStack(): LocalStack {
   const anonKey = values.get('ANON_KEY')
   const serviceRoleKey = values.get('SERVICE_ROLE_KEY')
   const dbUrl = values.get('DB_URL')
+  const functionsUrl = values.get('FUNCTIONS_URL')
 
-  if (!apiUrl || !anonKey || !serviceRoleKey || !dbUrl) {
+  if (!apiUrl || !anonKey || !serviceRoleKey || !dbUrl || !functionsUrl) {
     throw new Error(
       'Could not read the local Supabase stack. Run `npx supabase start` before the database tests.',
     )
   }
 
-  cached = { apiUrl, anonKey, serviceRoleKey, dbUrl }
+  cached = { apiUrl, anonKey, serviceRoleKey, dbUrl, functionsUrl }
   return cached
 }
