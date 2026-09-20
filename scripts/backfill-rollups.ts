@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '../apps/web/src/types/database.ts'
 import { args, scriptEnv } from './lib/env.ts'
 
 /**
@@ -28,7 +29,7 @@ if (!projectIdFlag) {
 
 const projectId: string = projectIdFlag
 const { url, serviceRoleKey } = scriptEnv()
-const supabase = createClient(url, serviceRoleKey, {
+const supabase = createClient<Database>(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 

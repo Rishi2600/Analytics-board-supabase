@@ -1,0 +1,18 @@
+                                                                              QUERY PLAN                                                                               
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual time=20.442..20.442 rows=1 loops=1)
+   Buffers: shared hit=591
+   ->  HashAggregate (actual time=19.775..20.214 rows=5555 loops=1)
+         Group Key: u.distinct_id
+         Batches: 1  Memory Usage: 465kB
+         Buffers: shared hit=591
+         ->  Index Only Scan using user_activity_daily_pkey on user_activity_daily u (actual time=0.046..8.510 rows=73425 loops=1)
+               Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= ((now() - '30 days'::interval))::date) AND (day <= (now())::date))
+               Heap Fetches: 0
+               Buffers: shared hit=591
+ Planning:
+   Buffers: shared hit=125
+ Planning Time: 0.378 ms
+ Execution Time: 20.676 ms
+(14 rows)
+

@@ -1,0 +1,24 @@
+                                                                                                               QUERY PLAN                                                                                                               
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate (actual time=3.059..120.046 rows=2130 loops=1)
+   Group Key: e2.distinct_id
+   Buffers: shared hit=34639
+   ->  Nested Loop (actual time=2.394..119.065 rows=3199 loops=1)
+         Buffers: shared hit=34639
+         ->  GroupAggregate (actual time=2.358..96.446 rows=5555 loops=1)
+               Group Key: e2.distinct_id
+               Buffers: shared hit=17083
+               ->  Index Only Scan using events_raw_user_event_ts_idx on events_raw e2 (actual time=0.851..82.889 rows=120532 loops=1)
+                     Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (event_name = 'session_start'::text) AND (ts >= (now() - '30 days'::interval)))
+                     Heap Fetches: 3550
+                     Buffers: shared hit=17083
+         ->  Index Only Scan using events_raw_user_event_ts_idx on events_raw e (actual time=0.003..0.004 rows=1 loops=5555)
+               Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (distinct_id = e2.distinct_id) AND (event_name = 'page_view'::text) AND (ts > (min(e2.ts))) AND (ts <= ((min(e2.ts)) + '1 day'::interval)))
+               Heap Fetches: 0
+               Buffers: shared hit=17556
+ Planning:
+   Buffers: shared hit=310
+ Planning Time: 0.839 ms
+ Execution Time: 120.280 ms
+(20 rows)
+

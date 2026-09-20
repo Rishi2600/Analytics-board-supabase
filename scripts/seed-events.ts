@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database, Json } from '../apps/web/src/types/database.ts'
 import { randomUUID } from 'node:crypto'
 import { args, scriptEnv } from './lib/env.ts'
 
@@ -35,7 +36,7 @@ if (!projectIdFlag) {
 const projectId: string = projectIdFlag
 
 const { url, serviceRoleKey } = scriptEnv()
-const supabase = createClient(url, serviceRoleKey, {
+const supabase = createClient<Database>(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
@@ -92,17 +93,10 @@ function hourOfDay(): number {
   return Math.floor(Math.random() * 24)
 }
 
-interface SeedEvent {
-  project_id: string
-  event_name: string
-  distinct_id: string
-  session_id: string
-  ts: string
-  received_at: string
-  properties: Record<string, unknown>
-  context: Record<string, unknown>
-  ingest_id: string
-}
+// The row shape comes from the generated types rather than being restated here, so a
+// column added to events_raw becomes a compile error in this script rather than a silent
+// gap in the seeded data.
+type SeedEvent = Database['public']['Tables']['events_raw']['Insert']
 
 function buildSession(dayIndex: number, totalDays: number, userCount: number): SeedEvent[] {
   const userIndex = pickUser(userCount)
@@ -134,7 +128,7 @@ function buildSession(dayIndex: number, totalDays: number, userCount: number): S
     const receivedAt = new Date(cursor + lateness + Math.floor(Math.random() * 3000))
 
     const path = step.event === 'page_view' ? pick(PAGES) : undefined
-    const properties: Record<string, unknown> = { plan, country }
+    const properties: Record<string, Json> = { plan, country }
     if (path) properties.path = path
     if (step.event === 'checkout_completed') {
       properties.amount = pick([1900, 4900, 9900, 19900])

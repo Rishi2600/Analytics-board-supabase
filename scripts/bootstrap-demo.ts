@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '../apps/web/src/types/database.ts'
 import { args, scriptEnv } from './lib/env.ts'
 
 /**
@@ -27,7 +28,7 @@ if (!url.includes('127.0.0.1') && !url.includes('localhost') && flags.get('force
   process.exit(1)
 }
 
-const admin = createClient(url, serviceRoleKey, {
+const admin = createClient<Database>(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
@@ -49,13 +50,13 @@ async function main(): Promise<void> {
 
   // Organization creation goes through the api function, which requires a real session,
   // so the script signs in as the demo user rather than using the service role.
-  const asUser = createClient(url, serviceRoleKey, {
+  const asUser = createClient<Database>(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const signedIn = await asUser.auth.signInWithPassword({ email, password })
   if (signedIn.error) throw signedIn.error
 
-  const userClient = createClient(url, signedIn.data.session?.access_token ?? '', {
+  const userClient = createClient<Database>(url, signedIn.data.session?.access_token ?? '', {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: `Bearer ${signedIn.data.session?.access_token ?? ''}` } },
   })
