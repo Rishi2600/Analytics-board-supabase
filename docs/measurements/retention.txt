@@ -1,0 +1,8 @@
+                                QUERY PLAN                                 
+---------------------------------------------------------------------------
+ Function Scan on retention (actual time=238.161..238.165 rows=88 loops=1)
+   Buffers: shared hit=36642 read=8, temp read=319 written=320
+ Planning Time: 0.046 ms
+ Execution Time: 238.275 ms
+(4 rows)
+

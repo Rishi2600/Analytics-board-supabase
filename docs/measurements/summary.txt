@@ -1,91 +1,94 @@
                                                                                                                         QUERY PLAN                                                                                                                         
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Nested Loop (actual time=206.352..206.364 rows=1 loops=1)
-   Buffers: shared hit=119 read=3440, temp read=133 written=318
+ Nested Loop (actual time=333.797..333.809 rows=1 loops=1)
+   Buffers: shared hit=249151 read=2642, temp read=135 written=321
    CTE prev
-     ->  Result (actual time=0.007..0.008 rows=1 loops=1)
+     ->  Result (actual time=0.006..0.007 rows=1 loops=1)
            InitPlan 1
-             ->  Result (actual time=0.001..0.002 rows=1 loops=1)
+             ->  Result (actual time=0.001..0.001 rows=1 loops=1)
    InitPlan 3
-     ->  Seq Scan on projects p (actual time=0.028..0.029 rows=1 loops=1)
+     ->  Seq Scan on projects p (actual time=0.017..0.019 rows=1 loops=1)
            Filter: (id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid)
-           Rows Removed by Filter: 4
+           Rows Removed by Filter: 28
            Buffers: shared hit=1
-   ->  Nested Loop (actual time=134.431..134.439 rows=1 loops=1)
-         Buffers: shared hit=71 read=2454, temp read=105 written=267
-         ->  Nested Loop (actual time=108.008..108.014 rows=1 loops=1)
-               Buffers: shared hit=47 read=1935, temp read=105 written=267
-               ->  Nested Loop (actual time=106.534..106.538 rows=1 loops=1)
-                     Buffers: shared read=1874, temp read=105 written=267
-                     ->  Nested Loop (actual time=26.102..26.104 rows=1 loops=1)
-                           Buffers: shared read=728
-                           ->  Aggregate (actual time=3.144..3.145 rows=1 loops=1)
-                                 Buffers: shared read=137
-                                 ->  Seq Scan on rollup_events_hourly h (actual time=1.840..2.848 rows=4142 loops=1)
+   ->  Nested Loop (actual time=249.432..249.440 rows=1 loops=1)
+         Buffers: shared hit=247226 read=1611, temp read=105 written=267
+         ->  Nested Loop (actual time=207.601..207.607 rows=1 loops=1)
+               Buffers: shared hit=201081 read=1092, temp read=105 written=267
+               ->  Nested Loop (actual time=206.105..206.109 rows=1 loops=1)
+                     Buffers: shared hit=201034 read=1031, temp read=105 written=267
+                     ->  Nested Loop (actual time=53.172..53.174 rows=1 loops=1)
+                           Buffers: shared hit=75304 read=330
+                           ->  Aggregate (actual time=3.039..3.040 rows=1 loops=1)
+                                 Buffers: shared hit=5 read=133
+                                 ->  Seq Scan on rollup_events_hourly h (actual time=1.781..2.765 rows=4136 loops=1)
                                        Filter: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (bucket < now()) AND (bucket >= (now() - '30 days'::interval)))
-                                       Rows Removed by Filter: 8428
-                                       Buffers: shared read=137
-                           ->  Aggregate (actual time=22.955..22.956 rows=1 loops=1)
-                                 Buffers: shared read=591
-                                 ->  HashAggregate (actual time=22.264..22.711 rows=5555 loops=1)
+                                       Rows Removed by Filter: 8474
+                                       Buffers: shared hit=5 read=133
+                           ->  Aggregate (actual time=50.130..50.131 rows=1 loops=1)
+                                 Buffers: shared hit=75299 read=197
+                                 ->  HashAggregate (actual time=49.383..49.873 rows=5555 loops=1)
                                        Group Key: u.distinct_id
                                        Batches: 1  Memory Usage: 465kB
-                                       Buffers: shared read=591
-                                       ->  Index Only Scan using user_activity_daily_pkey on user_activity_daily u (actual time=0.065..10.206 rows=73425 loops=1)
+                                       Buffers: shared hit=75299 read=197
+                                       ->  Index Only Scan using user_activity_daily_pkey on user_activity_daily u (actual time=0.072..35.679 rows=73425 loops=1)
                                              Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= (((now() - '30 days'::interval) AT TIME ZONE 'UTC'::text))::date) AND (day <= ((now() AT TIME ZONE 'UTC'::text))::date))
-                                             Heap Fetches: 0
-                                             Buffers: shared read=591
-                     ->  Aggregate (actual time=80.430..80.432 rows=1 loops=1)
-                           Buffers: shared read=1146, temp read=105 written=267
-                           ->  HashAggregate (actual time=51.391..74.867 rows=123923 loops=1)
+                                             Heap Fetches: 79617
+                                             Buffers: shared hit=75299 read=197
+                     ->  Aggregate (actual time=152.931..152.932 rows=1 loops=1)
+                           Buffers: shared hit=125730 read=701, temp read=105 written=267
+                           ->  HashAggregate (actual time=120.983..146.627 rows=123923 loops=1)
                                  Group Key: s.session_id
                                  Batches: 5  Memory Usage: 10289kB  Disk Usage: 1552kB
-                                 Buffers: shared read=1146, temp read=105 written=267
-                                 ->  Index Only Scan using session_activity_daily_pkey on session_activity_daily s (actual time=0.071..16.787 rows=123945 loops=1)
+                                 Buffers: shared hit=125730 read=701, temp read=105 written=267
+                                 ->  Index Only Scan using session_activity_daily_pkey on session_activity_daily s (actual time=0.079..72.633 rows=123945 loops=1)
                                        Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= (((now() - '30 days'::interval) AT TIME ZONE 'UTC'::text))::date) AND (day <= ((now() AT TIME ZONE 'UTC'::text))::date))
-                                       Heap Fetches: 0
-                                       Buffers: shared read=1146
-               ->  Aggregate (actual time=1.471..1.472 rows=1 loops=1)
+                                       Heap Fetches: 134042
+                                       Buffers: shared hit=125730 read=701
+               ->  Aggregate (actual time=1.493..1.494 rows=1 loops=1)
                      Buffers: shared hit=47 read=61
-                     ->  Nested Loop (actual time=0.478..1.241 rows=4234 loops=1)
+                     ->  Nested Loop (actual time=0.437..1.255 rows=4234 loops=1)
                            Buffers: shared hit=47 read=61
                            ->  CTE Scan on prev (actual time=0.008..0.009 rows=1 loops=1)
-                           ->  Bitmap Heap Scan on rollup_events_hourly h_1 (actual time=0.467..0.849 rows=4234 loops=1)
+                           ->  Bitmap Heap Scan on rollup_events_hourly h_1 (actual time=0.427..0.835 rows=4234 loops=1)
                                  Recheck Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (bucket >= prev.prev_from) AND (bucket < prev.prev_to))
                                  Heap Blocks: exact=47
                                  Buffers: shared hit=47 read=61
-                                 ->  Bitmap Index Scan on rollup_events_hourly_pkey (actual time=0.453..0.453 rows=4234 loops=1)
+                                 ->  Bitmap Index Scan on rollup_events_hourly_pkey (actual time=0.412..0.412 rows=4234 loops=1)
                                        Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (bucket >= prev.prev_from) AND (bucket < prev.prev_to))
                                        Buffers: shared read=61
-         ->  Aggregate (actual time=26.422..26.423 rows=1 loops=1)
-               Buffers: shared hit=24 read=519
-               ->  HashAggregate (actual time=25.765..26.191 rows=5555 loops=1)
+         ->  Aggregate (actual time=41.829..41.831 rows=1 loops=1)
+               Buffers: shared hit=46145 read=519
+               ->  HashAggregate (actual time=41.074..41.564 rows=5555 loops=1)
                      Group Key: u_1.distinct_id
                      Batches: 1  Memory Usage: 465kB
-                     Buffers: shared hit=24 read=519
-                     ->  Nested Loop (actual time=0.029..14.697 rows=67965 loops=1)
-                           Buffers: shared hit=24 read=519
+                     Buffers: shared hit=46145 read=519
+                     ->  Nested Loop (actual time=0.023..28.572 rows=67965 loops=1)
+                           Buffers: shared hit=46145 read=519
                            ->  CTE Scan on prev prev_1 (actual time=0.000..0.001 rows=1 loops=1)
-                           ->  Index Only Scan using user_activity_daily_pkey on user_activity_daily u_1 (actual time=0.025..10.208 rows=67965 loops=1)
+                           ->  Index Only Scan using user_activity_daily_pkey on user_activity_daily u_1 (actual time=0.018..23.692 rows=67965 loops=1)
                                  Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= ((prev_1.prev_from AT TIME ZONE 'UTC'::text))::date) AND (day <= ((prev_1.prev_to AT TIME ZONE 'UTC'::text))::date))
-                                 Heap Fetches: 0
-                                 Buffers: shared hit=24 read=519
-   ->  Aggregate (actual time=71.884..71.885 rows=1 loops=1)
-         Buffers: shared hit=47 read=986, temp read=28 written=51
-         ->  HashAggregate (actual time=51.073..67.340 rows=108823 loops=1)
+                                 Heap Fetches: 46203
+                                 Buffers: shared hit=46145 read=519
+   ->  Aggregate (actual time=84.337..84.338 rows=1 loops=1)
+         Buffers: shared hit=1924 read=1031, temp read=30 written=54
+         ->  HashAggregate (actual time=62.428..79.647 rows=108823 loops=1)
                Group Key: s_1.session_id
-               Batches: 5  Memory Usage: 10289kB  Disk Usage: 248kB
-               Buffers: shared hit=47 read=986, temp read=28 written=51
-               ->  Nested Loop (actual time=0.026..22.391 rows=108837 loops=1)
-                     Buffers: shared hit=47 read=986
+               Batches: 5  Memory Usage: 10289kB  Disk Usage: 256kB
+               Buffers: shared hit=1924 read=1031, temp read=30 written=54
+               ->  Nested Loop (actual time=8.359..30.355 rows=108837 loops=1)
+                     Buffers: shared hit=1924 read=1031
                      ->  CTE Scan on prev prev_2 (actual time=0.000..0.001 rows=1 loops=1)
-                     ->  Index Only Scan using session_activity_daily_pkey on session_activity_daily s_1 (actual time=0.022..15.668 rows=108837 loops=1)
-                           Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= ((prev_2.prev_from AT TIME ZONE 'UTC'::text))::date) AND (day <= ((prev_2.prev_to AT TIME ZONE 'UTC'::text))::date))
-                           Heap Fetches: 0
-                           Buffers: shared hit=47 read=986
+                     ->  Bitmap Heap Scan on session_activity_daily s_1 (actual time=8.356..20.810 rows=108837 loops=1)
+                           Recheck Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= ((prev_2.prev_from AT TIME ZONE 'UTC'::text))::date) AND (day <= ((prev_2.prev_to AT TIME ZONE 'UTC'::text))::date))
+                           Heap Blocks: exact=1923
+                           Buffers: shared hit=1924 read=1031
+                           ->  Bitmap Index Scan on session_activity_daily_pkey (actual time=8.132..8.133 rows=108837 loops=1)
+                                 Index Cond: ((project_id = '6ea90334-4c9e-44cb-a71f-b6faf5ce177d'::uuid) AND (day >= ((prev_2.prev_from AT TIME ZONE 'UTC'::text))::date) AND (day <= ((prev_2.prev_to AT TIME ZONE 'UTC'::text))::date))
+                                 Buffers: shared hit=1 read=1031
  Planning:
-   Buffers: shared hit=882 read=7
- Planning Time: 3.001 ms
- Execution Time: 209.878 ms
-(87 rows)
+   Buffers: shared hit=908
+ Planning Time: 2.776 ms
+ Execution Time: 337.103 ms
+(90 rows)
 

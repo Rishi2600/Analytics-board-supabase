@@ -1,8 +1,8 @@
                                QUERY PLAN                                
 -------------------------------------------------------------------------
- Function Scan on timeseries (actual time=5.810..5.817 rows=180 loops=1)
-   Buffers: shared hit=784
- Planning Time: 0.046 ms
- Execution Time: 5.926 ms
+ Function Scan on timeseries (actual time=6.316..6.324 rows=180 loops=1)
+   Buffers: shared hit=787 read=6
+ Planning Time: 0.047 ms
+ Execution Time: 6.443 ms
 (4 rows)
 

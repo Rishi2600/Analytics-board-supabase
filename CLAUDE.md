@@ -127,9 +127,10 @@ All twelve phases are complete. Last updated at the end of phase 12.
 
 ### Measured, not assumed
 
-Against 1,000,127 seeded events: `summary` 169ms, `funnel` 170ms, `retention` 73ms,
-`timeseries` 12ms, everything else under 5ms. Plans in `docs/measurements/`. Rollup totals
-equal raw event counts exactly.
+Against 1,000,109 seeded events, warm: `summary` 267-286ms, `retention` 251-254ms,
+`funnel` 136-163ms, `timeseries` 4-7ms, everything else under 5ms. All inside the 300ms
+budget; summary and retention without much room, which `docs/ARCHITECTURE.md` explains
+along with what was tried and rejected. Rollup totals equal raw event counts exactly.
 
 ### Known gaps, all deliberate
 

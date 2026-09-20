@@ -123,33 +123,57 @@ write ahead logging for on every entry.
 
 ## Performance
 
-Measured on this machine against **1,000,127 seeded events** across 90 days, 5,555 users.
-Plans are in `docs/measurements/`.
+Measured on this machine against **1,000,109 seeded events** across 90 days, 5,555 users,
+12,560 hourly rollup rows, 195,533 user-day rows and 299,616 session-day rows. Three warm
+runs each; plans are in `docs/measurements/`.
 
-| Function                   | Time  | What dominates                              |
-| -------------------------- | ----- | ------------------------------------------- |
-| `api.summary`              | 169ms | four distinct counts over membership tables |
-| `api.funnel` (4 steps)     | 170ms | per user index lookups on `events_raw`      |
-| `api.retention` (8 weeks)  | 73ms  | cohort assignment over `events_raw`         |
-| `api.timeseries` (30 days) | 12ms  | 12,698 hourly rollup rows                   |
-| `api.top_events`           | 4ms   | grouped rollup scan                         |
-| `api.breakdown`            | 2ms   | property rollup index scan                  |
-| `api.live_events`          | 1ms   | index scan, 100 rows                        |
-| `jobs.run_rollups` (full)  | 17.8s | one off, aggregating all 1M events          |
+| Function                   | Warm runs         | What dominates                                                |
+| -------------------------- | ----------------- | ------------------------------------------------------------- |
+| `api.summary`              | 286 / 267 / 275ms | four distinct counts; the two session counts are ~150ms of it |
+| `api.retention` (8 weeks)  | 251 / 251 / 254ms | cohort assignment over `events_raw`                           |
+| `api.funnel` (4 steps)     | 163 / 150 / 136ms | per user index lookups on `events_raw`                        |
+| `api.timeseries` (30 days) | 6.5 / 3.8 / 3.7ms | 12,560 hourly rollup rows                                     |
+| `api.top_events`           | 5.0 / 3.1 / 2.9ms | grouped rollup scan                                           |
+| `api.breakdown`            | 3.0 / 0.6 / 0.5ms | property rollup index scan                                    |
+| `api.live_events`          | 1.7 / 0.3 / 0.3ms | index scan, 100 rows                                          |
+| `jobs.run_rollups` (full)  | 17.8s             | one off, aggregating all 1M events                            |
 
-Two of these needed work to get there, and both are worth recording because the first
-attempt was not slow for an obvious reason.
+Everything is inside the 300ms budget. **`api.summary` and `api.retention` are inside it
+without much room**, and that is worth stating rather than rounding away, because summary
+runs on every overview page load.
 
-**`api.summary` was 534ms.** The cost was four `count(distinct ...)` calls. Postgres
-implements `count(distinct)` with a sort, always. Rewriting each as
-`count(*) from (select distinct ...)` lets the planner choose a hash aggregate instead,
-which measured 27.9ms against 85.7ms for the same 73,425 rows. Four counts, so the saving
-multiplied.
+### A measurement mistake worth recording
 
-**`api.funnel` was 1349ms.** Each step asks "did this user do the next event, after the
-previous one, within the window". That is a lookup by
-`(project_id, distinct_id, event_name, ts)`, and no index covered it, so every step scanned
-a large slice of `events_raw`. Adding that index took the whole funnel to 170ms.
+An earlier version of this document claimed `api.summary` ran in 169ms. That number was
+wrong, and the way it was wrong is instructive: it was measured after
+`session_activity_daily` was created but before any rollup had populated it. The two
+session counts were scanning an empty table. The moment real data landed the same function
+took 280ms.
+
+A benchmark against a table that happens to be empty will report whatever you hoped for.
+The numbers above were taken with every table populated, and the row counts are listed so
+the next person can tell whether they are comparing like with like.
+
+### Where the remaining time goes, and what we would do about it
+
+`api.summary` spends roughly 150ms on two `count(distinct session_id)` calls. The cost is
+not the scan, it is the hash aggregate: sessions are almost unique per day, so a 124,000
+row scan produces 123,923 distinct values and the hash table gets no benefit from
+deduplication.
+
+Two things were tried and rejected:
+
+- **One scan over the combined range with conditional aggregation** instead of two scans.
+  Measured _worse_, 342ms against 264ms, because grouping across both periods builds one
+  larger hash table rather than two smaller ones.
+- **`count(*)` instead of `count(distinct ...)`**, which would be 0.018% high on this data
+  because only 22 sessions out of 123,945 span a day boundary. Rejected because ADR-0010
+  exists precisely to stop sessions being approximately right, and re-approximating them
+  for 100ms would undo that argument.
+
+If this becomes a real problem, the fix is a `rollup_sessions_daily` count table plus an
+exact correction term for multi-day sessions, or HyperLogLog. Both are in the deferred
+list with their triggers.
 
 ### Verifying these numbers
 
