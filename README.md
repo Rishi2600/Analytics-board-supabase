@@ -30,12 +30,14 @@ filterable explorer with saved views, a live feed, funnels, retention cohorts, C
 exports, and an ingestion health screen that shows what was rejected and how fresh the
 numbers are.
 
-At one million events, every dashboard query returns in under 200ms.
+At one million events, every dashboard query returns inside a 300ms budget. Most take
+under 10ms; the headline summary and retention take 250 to 290ms, and
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains why and what was tried.
 
 ## Status
 
-All twelve build phases are complete. 63 database and integration tests pass, plus 28 unit
-tests. `CLAUDE.md` tracks current state and known gaps.
+All twelve build phases are complete. 28 unit, 63 database and integration, and 5
+end-to-end tests pass. `CLAUDE.md` tracks current state and known gaps.
 
 ## Requirements
 
@@ -49,8 +51,8 @@ git clone https://github.com/Rishi2600/Analytics-dashboard-supabase.git
 cd Analytics-dashboard-supabase
 npm install
 
-# Start Postgres, the API, auth, storage and functions locally.
-# The first run pulls several GB of Docker images.
+# Start Postgres, the API, auth, storage and Realtime as 12 Docker containers,
+# and apply every migration. The first run pulls several GB of images.
 npx supabase start
 
 # Create a demo account, an organization, a project and an API key.
@@ -66,6 +68,33 @@ npm run dev
 ```
 
 Sign in at http://localhost:5173 with `demo@example.test` / `demo-password-change-me`.
+
+### You need a second terminal for Edge Functions
+
+`supabase start` does **not** serve Edge Functions, despite starting a container named
+`edge_runtime`. Ingestion and exports return 404 until you run:
+
+```bash
+npm run functions      # npx supabase functions serve
+```
+
+This is worth knowing up front because the failure does not look like a missing process:
+the dashboard loads perfectly and simply never receives an event.
+
+### Starting and stopping the containers
+
+| Command             | What it does                                       | Time                    |
+| ------------------- | -------------------------------------------------- | ----------------------- |
+| `npm run db:start`  | create and start all 12 containers                 | ~34s warm, minutes cold |
+| `npm run db:stop`   | stop and **remove** them, keeping the data volumes | ~15s                    |
+| `npm run db:pause`  | stop them without removing them                    | ~10s                    |
+| `npm run db:resume` | start them again, waiting until healthy            | ~3s                     |
+| `npm run db:status` | every container and its health                     | instant                 |
+
+`db:stop` removes the containers, so `db:start` has to recreate them. For stepping away
+rather than finishing for the day, `db:pause` and `db:resume` keep the same containers and
+are roughly ten times faster to come back from. Your data survives either way: it lives in
+three named Docker volumes, not in the containers.
 
 ### Send a test event
 
@@ -106,7 +135,9 @@ All from the repository root.
 | `npm run test`                 | unit tests                                                     |
 | `npm run test:db`              | database and integration tests. Needs the local stack running  |
 | `npm run test:e2e`             | Playwright, three critical flows                               |
-| `npm run db:start` / `db:stop` | the local Supabase stack                                       |
+| `npm run db:start` / `db:stop` | create, or stop and remove, the local Supabase stack           |
+| `npm run db:pause` / `resume`  | fast stop and start that keeps the containers                  |
+| `npm run functions`            | serve the Edge Functions. Needed for ingestion and exports     |
 | `npm run db:reset`             | drop and replay every migration                                |
 | `npm run db:types`             | regenerate TypeScript types from the schema                    |
 

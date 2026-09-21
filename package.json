@@ -24,7 +24,11 @@
     "test:db": "vitest run --config vitest.integration.config.ts",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
+    "db:pause": "./scripts/stack.sh pause",
+    "db:resume": "./scripts/stack.sh resume",
+    "db:status": "./scripts/stack.sh status",
     "db:reset": "supabase db reset",
+    "functions": "supabase functions serve",
     "db:types": "supabase gen types typescript --local --schema public --schema api --schema jobs > apps/web/src/types/database.ts",
     "test:e2e": "playwright test"
   },
