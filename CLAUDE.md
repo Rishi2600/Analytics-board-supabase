@@ -98,14 +98,17 @@ Load the relevant skill before the work it governs:
     apps/web              Vite React dashboard
     packages/sdk          the browser and node snippet customers install
     supabase/migrations   timestamped, forward only
-    supabase/functions    ingest, export-run, _shared
-    scripts               seed-events.ts, backfill-rollups.ts
+    supabase/functions    ingest, export-run, export-download, _shared
+    scripts               bootstrap-demo, seed-events, backfill-rollups, stack.sh
+    tests                 database and integration tests, need the local stack
+    e2e                   Playwright, needs the stack plus a dev server
     docs                  architecture, data model, ingestion, runbook, decisions
     .claude/skills        design-system, supabase, engineering
 
 ## Current state
 
-All twelve phases are complete. Last updated at the end of phase 12.
+All twelve phases are complete, plus the follow-up work in the four commits after
+phase 12. Last updated 2026-09-23.
 
 ### What exists
 
@@ -123,6 +126,9 @@ All twelve phases are complete. Last updated at the end of phase 12.
   enforces.
 - **Dashboard**: 10 screens. Every data surface has a skeleton, an empty state and an
   error state.
+- **Sign in**: password, magic link and GitHub on one screen, with account creation. The
+  password floor is 8 characters, set in the form and in `auth.minimum_password_length`
+  so the API enforces it too. See ADR-0011.
 - **Tests**: 28 unit, 63 database and integration, 10 Playwright. All passing.
 
 ### Measured, not assumed
@@ -150,14 +156,23 @@ along with what was tried and rejected. Rollup totals equal raw event counts exa
 - **No scheduled or emailed reports.** The export pipeline exists; the schedule does not.
 - **`apps/web/src/types/database.ts` includes the `jobs` schema**, because tests and Edge
   Functions call it. The type describes the database; the grants decide who may call what.
+- **No password reset, and no way to add a password to an account created by a magic
+  link.** Both are single Supabase Auth calls, neither is wired up. See ADR-0011.
+- **No automated accessibility audit.** Keyboard reach and dialog escape have a Playwright
+  test, and focus and contrast were built to the design rules, but nothing runs axe.
 
 ### If you are picking this up cold
 
-1. `npx supabase start`, then `node scripts/bootstrap-demo.ts`.
-2. Read `docs/SUPABASE_GUIDE.md` if the stack is new to you. It uses this project as the
+1. `npm run db:start`, then `node scripts/bootstrap-demo.ts`. Between sessions use
+   `npm run db:pause` and `npm run db:resume`, which keep the containers and are about ten
+   times faster than a stop and start.
+2. `npm run functions` in a second terminal. `db:start` does not serve Edge Functions, so
+   without it ingestion and exports return 404 while the dashboard looks fine.
+3. Read `docs/SUPABASE_GUIDE.md` if the stack is new to you. It uses this project as the
    worked example throughout.
-3. `npm run verify` before every commit. `npm run test:db` needs the stack running.
-4. Regenerate types after every migration: `npm run db:types`. Stale types produce
+4. `npm run verify` before every commit. `npm run test:db` needs the stack running, and
+   `npm run test:e2e` needs the stack plus Chromium.
+5. Regenerate types after every migration: `npm run db:types`. Stale types produce
    confusing errors that look like code bugs.
-5. Changing `supabase/config.toml` needs `supabase stop && supabase start`. A `db reset`
-   will not pick it up.
+6. Changing `supabase/config.toml` needs `npm run db:stop && npm run db:start`. A
+   `db reset` will not pick it up, and neither will pause and resume.
