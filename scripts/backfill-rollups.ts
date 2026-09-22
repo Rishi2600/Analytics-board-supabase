@@ -3,26 +3,37 @@ import type { Database } from '../apps/web/src/types/database.ts'
 import { args, scriptEnv } from './lib/env.ts'
 
 /**
- * Recomputes rollups for an arbitrary date range, one day at a time.
+ * Recomputes rollups for a date range, one day at a time.
  *
- * You want this the first time a rollup bug ships. The scheduled job only recomputes
- * buckets that late-arriving events touched, so a fix to the aggregation logic itself does
- * not retroactively repair history: the affected buckets have no new events and the job
- * will never look at them again.
+ * The scheduled job only aggregates events whose received_at is newer than its watermark.
+ * Two situations fall outside that, and this script exists for both:
  *
- * Idempotent, chunked by day and resumable, because a backfill over a year of data will be
- * interrupted at some point and starting over is not acceptable.
+ *   Seeded or imported history. scripts/seed-events.ts writes events with arrival times in
+ *   the past, so once the scheduled job has run for a project its watermark is already
+ *   ahead of them and it will never look at them.
+ *
+ *   A bug fix in the aggregation SQL. Buckets that were computed wrongly have no new events
+ *   in them, so the job has no reason to revisit them.
+ *
+ * By default the range is every day on which this project has raw events. Rebuilding a day
+ * replaces its rollups with whatever raw events remain for it, so a day whose raw events
+ * were pruned by retention would lose its history. Starting at the oldest raw event keeps
+ * that history untouched. An explicit --from earlier than that is refused without --force.
+ *
+ * Idempotent, chunked by day and resumable: rerun with --from set to the day it stopped on.
  *
  * Usage:
- *   node scripts/backfill-rollups.ts --project <uuid> [--from 2026-06-01] [--to 2026-09-20]
+ *   node scripts/backfill-rollups.ts --project <uuid> [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--force]
  */
+
+const DAY_MS = 86_400_000
 
 const flags = args(process.argv.slice(2))
 const projectIdFlag = flags.get('project')
 
 if (!projectIdFlag) {
   console.error(
-    'Usage: node scripts/backfill-rollups.ts --project <uuid> [--from YYYY-MM-DD] [--to YYYY-MM-DD]',
+    'Usage: node scripts/backfill-rollups.ts --project <uuid> [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--force]',
   )
   process.exit(1)
 }
@@ -32,6 +43,16 @@ const { url, serviceRoleKey } = scriptEnv()
 const supabase = createClient<Database>(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
+
+function isoDay(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+function startOfUtcDay(date: Date): Date {
+  const copy = new Date(date)
+  copy.setUTCHours(0, 0, 0, 0)
+  return copy
+}
 
 function parseDay(value: string | undefined, fallback: Date): Date {
   if (!value) return fallback
@@ -43,17 +64,58 @@ function parseDay(value: string | undefined, fallback: Date): Date {
   return parsed
 }
 
-const today = new Date()
-today.setUTCHours(0, 0, 0, 0)
+/** The first and last UTC day on which this project has raw events. */
+async function rawEventDays(): Promise<{ first: Date; last: Date } | null> {
+  const earliest = await supabase
+    .from('events_raw')
+    .select('ts')
+    .eq('project_id', projectId)
+    .order('ts', { ascending: true })
+    .limit(1)
+  if (earliest.error) throw earliest.error
 
-const to = parseDay(flags.get('to'), today)
-const from = parseDay(flags.get('from'), new Date(to.getTime() - 89 * 86_400_000))
+  const latest = await supabase
+    .from('events_raw')
+    .select('ts')
+    .eq('project_id', projectId)
+    .order('ts', { ascending: false })
+    .limit(1)
+  if (latest.error) throw latest.error
+
+  const firstTs = earliest.data[0]?.ts
+  const lastTs = latest.data[0]?.ts
+  if (!firstTs || !lastTs) return null
+
+  return { first: startOfUtcDay(new Date(firstTs)), last: startOfUtcDay(new Date(lastTs)) }
+}
 
 async function main(): Promise<void> {
-  const totalDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86_400_000) + 1)
+  const days = await rawEventDays()
+  if (!days) {
+    console.log(`Project ${projectId} has no raw events, so there is nothing to recompute.`)
+    return
+  }
+
+  const from = parseDay(flags.get('from'), days.first)
+  const to = parseDay(flags.get('to'), days.last)
+
+  if (from < days.first && flags.get('force') !== 'true') {
+    console.error(
+      `--from ${isoDay(from)} is earlier than this project's oldest raw event (${isoDay(days.first)}).\n` +
+        'Recomputing a day rebuilds its rollups from raw events, so a day whose raw events were\n' +
+        'pruned would lose its history. Pass --force if that is really what you want.',
+    )
+    process.exit(1)
+  }
+
+  if (to < from) {
+    console.error(`--to ${isoDay(to)} is before --from ${isoDay(from)}.`)
+    process.exit(1)
+  }
+
+  const totalDays = Math.round((to.getTime() - from.getTime()) / DAY_MS) + 1
   console.log(
-    `Backfilling ${totalDays} day(s) for project ${projectId}, ` +
-      `${from.toISOString().slice(0, 10)} to ${to.toISOString().slice(0, 10)}`,
+    `Backfilling ${totalDays} day(s) for project ${projectId}, ${isoDay(from)} to ${isoDay(to)}`,
   )
 
   let completed = 0
@@ -61,7 +123,7 @@ async function main(): Promise<void> {
 
   for (let day = new Date(from); day <= to; day.setUTCDate(day.getUTCDate() + 1)) {
     const dayStart = new Date(day)
-    const dayEnd = new Date(day.getTime() + 86_400_000)
+    const dayEnd = new Date(day.getTime() + DAY_MS)
 
     const { error } = await supabase.schema('jobs').rpc('backfill_range', {
       p_project_id: projectId,
@@ -70,15 +132,15 @@ async function main(): Promise<void> {
     })
 
     if (error) {
-      console.error(`\nFailed on ${dayStart.toISOString().slice(0, 10)}:`, error.message)
-      console.error('Rerun with --from that date to resume; completed days are unaffected.')
+      console.error(`\nFailed on ${isoDay(dayStart)}:`, error.message)
+      console.error(
+        `Rerun with --from ${isoDay(dayStart)} to resume; completed days are unaffected.`,
+      )
       process.exit(1)
     }
 
     completed += 1
-    process.stdout.write(
-      `\r  ${completed}/${totalDays} days (${dayStart.toISOString().slice(0, 10)})`,
-    )
+    process.stdout.write(`\r  ${completed}/${totalDays} days (${isoDay(dayStart)})`)
   }
 
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1)

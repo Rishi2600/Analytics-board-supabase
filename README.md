@@ -123,6 +123,11 @@ node scripts/backfill-rollups.ts --project <project-id>
 Roughly two minutes to generate a million events with weekday seasonality, a power-law
 distribution over users, realistic funnel drop-off, and a few percent arriving late.
 
+Run the backfill every time you seed. Seeded events carry arrival times in the past, and
+the scheduled rollup job only aggregates events that arrived after its last run, so once it
+has run for a project it skips them. Without the backfill the charts come out empty or with
+gaps. It recomputes every day that has raw events, in about 45 seconds for a million events.
+
 ## Commands
 
 All from the repository root.
