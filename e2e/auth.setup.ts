@@ -20,6 +20,8 @@ setup('a new person can sign in with a magic link and reach the product', async 
   await expect(page).toHaveURL(/\/sign-in/)
   await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible()
 
+  // The screen opens on password sign-in, so pick the link option first.
+  await page.getByRole('button', { name: 'Email me a sign-in link' }).click()
   await page.getByLabel('Email').fill(email)
   await page.getByRole('button', { name: 'Send sign-in link' }).click()
 

@@ -123,7 +123,7 @@ All twelve phases are complete. Last updated at the end of phase 12.
   enforces.
 - **Dashboard**: 10 screens. Every data surface has a skeleton, an empty state and an
   error state.
-- **Tests**: 28 unit, 63 database and integration, 5 Playwright. All passing.
+- **Tests**: 28 unit, 63 database and integration, 10 Playwright. All passing.
 
 ### Measured, not assumed
 

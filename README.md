@@ -36,7 +36,7 @@ under 10ms; the headline summary and retention take 250 to 290ms, and
 
 ## Status
 
-All twelve build phases are complete. 28 unit, 63 database and integration, and 5
+All twelve build phases are complete. 28 unit, 63 database and integration, and 10
 end-to-end tests pass. `CLAUDE.md` tracks current state and known gaps.
 
 ## Requirements
@@ -67,10 +67,12 @@ npx supabase status -o env | grep -E '^(API_URL|ANON_KEY)=' \
 npm run dev
 ```
 
-Sign in at http://localhost:5173 with a magic link. There is no password form. Enter
-`demo@example.test`, press Send sign-in link, then open http://localhost:54324: locally no
-email is really sent, and it lands in the Mailpit inbox. Click the link in it and you are
-signed in.
+Sign in at http://localhost:5173 with `demo@example.test` and `demo-password-change-me`.
+
+Two other ways in, both on the same screen. **Email me a sign-in link** sends a magic link;
+locally no email is really sent, so open http://localhost:54324, the Mailpit inbox, and
+click the link in the newest message. **Create an account** signs you up with any email and
+a password of at least 8 characters.
 
 ### You need a second terminal for Edge Functions
 
@@ -142,7 +144,7 @@ All from the repository root.
 | `npm run verify`               | lint, format check, typecheck, unit tests, build. What CI runs |
 | `npm run test`                 | unit tests                                                     |
 | `npm run test:db`              | database and integration tests. Needs the local stack running  |
-| `npm run test:e2e`             | Playwright, three critical flows                               |
+| `npm run test:e2e`             | Playwright: sign-in, API keys, ingestion to live screen        |
 | `npm run db:start` / `db:stop` | create, or stop and remove, the local Supabase stack           |
 | `npm run db:pause` / `resume`  | fast stop and start that keeps the containers                  |
 | `npm run functions`            | serve the Edge Functions. Needed for ingestion and exports     |

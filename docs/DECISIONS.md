@@ -268,3 +268,41 @@ ever worth.
 job, and a row count proportional to sessions rather than events, which is roughly an order
 of magnitude smaller than `events_raw`. `rollup_events_hourly.session_count` is kept,
 because it is correct _within_ an hour and is what the hourly-grain chart uses.
+
+---
+
+## ADR-0011 - Email and password sign-in, alongside the magic link
+
+**Status:** accepted, 2026-09-22
+
+**Context.** The brief specified magic link plus GitHub OAuth, and the sign-in screen was
+built that way. In practice it made the project awkward to work on. The bootstrap script
+creates a demo user with a password because it needs one to sign in from a script, so the
+credentials exist and look usable, but there was nowhere to type them. Every local sign-in
+meant a detour through the Mailpit inbox, and GitHub OAuth needs credentials that a local
+checkout does not have.
+
+**Decision.** Add password sign-in and account creation to the same screen. The magic link
+and GitHub stay, and the magic link is still what the end to end sign-in test exercises,
+because it is the path that crosses the most services.
+
+**Consequences.**
+
+The screen now has three ways in, which is more surface than one. It stays a single form:
+the mode is part of the form values, so the schema validates against it and there is one
+submit path rather than three.
+
+The password floor is eight characters, set in the form and in
+`auth.minimum_password_length`. A rule that lives only in the browser is not a rule,
+because anyone can call the API directly; there is a check that the API refuses seven
+characters and accepts eight.
+
+Anyone who can reach the sign-in screen can now create an account with a password. That is
+not a new exposure: the magic link already created accounts for unknown addresses, which is
+what `shouldCreateUser` defaults to. An account with no organization lands on onboarding
+and can see nothing belonging to anyone else, which row level security enforces rather than
+the sign-in screen.
+
+Not done: no way to set a password on an account that was created by magic link, and no
+password reset. Both are Supabase Auth calls and neither is wired up, so an account created
+by link stays link-only.

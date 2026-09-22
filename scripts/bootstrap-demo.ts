@@ -90,11 +90,9 @@ async function main(): Promise<void> {
   })
   if (key.error) throw key.error
 
-  // The password exists only so this script can sign in as the demo user. The dashboard has
-  // no password form: it signs in with a magic link, which locally lands in Mailpit.
   console.log('\nDemo account ready.\n')
-  console.log(`  Email          ${email}`)
-  console.log('  Sign in        enter the email on the sign-in page, then open the link at')
+  console.log(`  Sign in with   ${email} / ${password}`)
+  console.log('                 or use "Email me a sign-in link" and open the message at')
   console.log('                 http://localhost:54324 (local mail catcher)')
   console.log(`  Project id     ${projectId}`)
   console.log(`  API key        ${key.data[0]?.api_key ?? '(not returned)'}`)
