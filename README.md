@@ -67,7 +67,10 @@ npx supabase status -o env | grep -E '^(API_URL|ANON_KEY)=' \
 npm run dev
 ```
 
-Sign in at http://localhost:5173 with `demo@example.test` / `demo-password-change-me`.
+Sign in at http://localhost:5173 with a magic link. There is no password form. Enter
+`demo@example.test`, press Send sign-in link, then open http://localhost:54324: locally no
+email is really sent, and it lands in the Mailpit inbox. Click the link in it and you are
+signed in.
 
 ### You need a second terminal for Edge Functions
 
