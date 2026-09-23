@@ -107,12 +107,13 @@ Load the relevant skill before the work it governs:
 
 ## Current state
 
-All twelve phases are complete, plus the follow-up work in the four commits after
-phase 12. Last updated 2026-09-23.
+All twelve phases are complete, plus a frontend redesign on the `ui-redesign` branch that
+also fixed four screens which never loaded for a signed-in user. Last updated 2026-09-23.
+`docs/UI_REDESIGN_REPORT.md` is the plain-language summary of that work.
 
 ### What exists
 
-- **Database**: 12 migrations. 22 tables in `public`, every one with row level security
+- **Database**: 14 migrations. 22 tables in `public`, every one with row level security
   enabled. Four have RLS and deliberately zero policies, each with a SQL comment saying
   why: `api_key_secrets`, `rate_limit_buckets`, `query_cache`, `rollup_state`.
 - **Schemas**: `public` for tables, `api` for the 14 read facing functions the dashboard
@@ -124,19 +125,30 @@ phase 12. Last updated 2026-09-23.
   pruning and export expiry nightly. All registered by migrations, not by hand.
 - **SDK**: `packages/sdk`, 1801 bytes gzipped against a 5120 byte budget that a script
   enforces.
-- **Dashboard**: 10 screens. Every data surface has a skeleton, an empty state and an
-  error state.
+- **Dashboard**: 10 screens on shadcn/ui: Sidebar, Card, Chart, Field, Empty, Alert and
+  AlertDialog. Every data surface has a skeleton, an empty state and an error state, and
+  every data screen has a provenance line (timezone, range, freshness) under its title.
+  Destructive actions go through a confirmation. Works at 320px and at 200% zoom.
+- **Forcing a state**: add `?state=loading`, `?state=empty` or `?state=error` to any URL in
+  development. `lib/dev-state.ts`; CI proves it is not in the production bundle.
+- **Screenshots**: `npm run screenshots` captures every screen, state, theme and width into
+  `docs/screenshots/` (gitignored). `node scripts/seed-demo-extras.ts` fills the panels the
+  event seed does not reach, through the real ingest, export and invite paths.
 - **Sign in**: password, magic link and GitHub on one screen, with account creation. The
   password floor is 8 characters, set in the form and in `auth.minimum_password_length`
   so the API enforces it too. See ADR-0011.
-- **Tests**: 28 unit, 63 database and integration, 10 Playwright. All passing.
+- **Tests**: 30 unit, 68 database and integration, 15 Playwright. All passing.
 
 ### Measured, not assumed
 
-Against 1,000,109 seeded events, warm: `summary` 267-286ms, `retention` 251-254ms,
-`funnel` 136-163ms, `timeseries` 4-7ms, everything else under 5ms. All inside the 300ms
-budget; summary and retention without much room, which `docs/ARCHITECTURE.md` explains
-along with what was tried and rejected. Rollup totals equal raw event counts exactly.
+Against 1,726,456 seeded events, warm, as the `authenticated` role a browser uses: `summary`
+about 40ms over 7 days and 200ms over 90, `funnel` about 255ms, `retention` about 295ms,
+`breakdown` 4ms. Summary over 30 days sits on the 300ms line, at 288 to 336ms.
+`docs/ARCHITECTURE.md` has every run and what was tried.
+
+Measure as a signed-in user, never as `postgres`. Before ADR-0013 the same three functions
+took 91s, 43s and over 60s for a real user while psql, which skips row level security,
+reported 33ms. Rollup totals equal raw event counts exactly.
 
 ### Known gaps, all deliberate
 
@@ -158,15 +170,21 @@ along with what was tried and rejected. Rollup totals equal raw event counts exa
   Functions call it. The type describes the database; the grants decide who may call what.
 - **No password reset, and no way to add a password to an account created by a magic
   link.** Both are single Supabase Auth calls, neither is wired up. See ADR-0011.
-- **No automated accessibility audit.** Keyboard reach and dialog escape have a Playwright
-  test, and focus and contrast were built to the design rules, but nothing runs axe.
+- **No automated accessibility audit.** Playwright covers dialog escape, confirmation on
+  revoke, the skip link, touch row actions and phone navigation, and every colour pair was
+  measured, but nothing runs axe. It would be a new dependency.
+- **Date ranges are presets only.** A custom range needs a calendar, which needs
+  `react-day-picker`, a new dependency.
+- **Charts have a legend and a tooltip but no table of their numbers** for screen reader
+  users.
 
 ### If you are picking this up cold
 
 1. `npm run db:start`, then `node scripts/bootstrap-demo.ts`. Between sessions use
    `npm run db:pause` and `npm run db:resume`, which keep the containers and are about ten
    times faster than a stop and start.
-2. `npm run functions` in a second terminal. `db:start` does not serve Edge Functions, so
+2. `npm run functions` in a second terminal. For a demo with every panel filled, then run
+   `node scripts/seed-events.ts` and `node scripts/seed-demo-extras.ts`. `db:start` does not serve Edge Functions, so
    without it ingestion and exports return 404 while the dashboard looks fine.
 3. Read `docs/SUPABASE_GUIDE.md` if the stack is new to you. It uses this project as the
    worked example throughout.

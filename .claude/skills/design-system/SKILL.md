@@ -14,7 +14,8 @@ One token file: `apps/web/src/index.css`. No hex literal anywhere else in the co
 arbitrary Tailwind values such as `w-[327px]` without a comment saying why.
 
     light   canvas #F5F6F8   surface #FFFFFF   border #DFE3E8   text #14181D   muted #5E6773
-    dark    canvas #0D1013   surface #161A1E   border #262C33   text #E6EAEE   muted #8D97A3
+    dark    canvas #11161B   surface #181E24   border #2A323B   text #E4E9EE   muted #8F9AA6
+    input   #858E99 light  /  #66707C dark        form control borders, 3:1 on the surface
     accent  #10656B light  /  #3FB8B2 dark        interactive affordances only
     status  ok #2F7D4F   warn #A96410   danger #C23A33    semantic only, never decorative
 
@@ -22,8 +23,8 @@ Chart colors are a separate palette from the UI accent, so data color never comp
 "this is clickable" color. Six series, mid saturation, distinguishable at 2px stroke width,
 each with a brightened dark mode counterpart in the token file:
 
-    --chart-1 #1F8A8A   --chart-2 #E0821C   --chart-3 #7B5BD6
-    --chart-4 #D64570   --chart-5 #4C8DF6   --chart-6 #6E8F2E
+    --chart-1 #2F6FDB   --chart-2 #D9771A   --chart-3 #7B5BD6
+    --chart-4 #D64570   --chart-5 #5F8A2A   --chart-6 #6B7A8C (slate, the tail)
 
 Dark mode is hand tuned, not auto inverted. Light and dark are equally first class and
 every screen is reviewed in both.
@@ -51,16 +52,24 @@ Individuality is carried by structure, not only by color.
 
 - `components/ui` holds shadcn primitives, unmodified where possible.
 - `components/charts` wraps Recharts. A route never imports Recharts directly.
-- `components/data` holds DataTable, FilterBar, DateRangePicker, MetricCard.
-- `components/layout` holds AppShell, Sidebar, Topbar, PageHeader.
+- `components/data` holds DataCard, MetricStrip, RankedCard, BarList, StatusBadge,
+  DeltaBadge, ConfirmDialog, DateRangePicker, TimezonePicker.
+- `components/layout` holds AppShell, AppSidebar, TopBar, PageHeader, Provenance,
+  AuthLayout.
 - `components/feedback` holds EmptyState, ErrorState, and the skeletons.
 
 Icons are lucide only, 16px in chrome, consistent stroke width, never decorative.
 
 ## Row actions
 
-Table row actions are hover to reveal, and revealed on keyboard focus as well. A control
-that appears on hover but not on focus is unreachable by keyboard and is a bug.
+Table row actions are hover to reveal, and revealed on keyboard focus as well. Put
+`group/row` on the row and `row-actions` on the control; `index.css` keeps them visible on
+devices that cannot hover. Destructive ones open `ConfirmDialog`.
+
+## Provenance
+
+Every data screen puts `<Provenance>` under its title: timezone, range, and freshness when
+the screen reads aggregates. It is the product's one bold idea; see `docs/DESIGN_SYSTEM.md`.
 
 ## The three states - not optional
 

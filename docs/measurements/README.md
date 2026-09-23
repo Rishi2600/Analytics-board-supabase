@@ -7,6 +7,10 @@ and 299,616 session-day rows.
 These are committed so a future change can be compared against a known baseline rather than
 against a memory of how fast things used to feel.
 
+They were captured in psql as `postgres`, which skips row level security, so they understate
+what a signed-in user sees. `docs/ARCHITECTURE.md` has the current numbers, measured as the
+`authenticated` role after ADR-0013.
+
 | File               | Query                                                            |
 | ------------------ | ---------------------------------------------------------------- |
 | `summary.txt`      | `api.summary` over 30 days, the overview page's headline numbers |

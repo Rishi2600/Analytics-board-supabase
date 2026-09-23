@@ -30,14 +30,16 @@ filterable explorer with saved views, a live feed, funnels, retention cohorts, C
 exports, and an ingestion health screen that shows what was rejected and how fresh the
 numbers are.
 
-At one million events, every dashboard query returns inside a 300ms budget. Most take
-under 10ms; the headline summary and retention take 250 to 290ms, and
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains why and what was tried.
+At 1.7 million events, measured as a signed-in user, the dashboard's queries return in
+under 300ms at the ranges each screen opens with. Most take under 60ms; funnels and
+retention take 250 to 300ms, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) has every
+run, the one case that sits on the line, and what was tried.
 
 ## Status
 
-All twelve build phases are complete. 28 unit, 63 database and integration, and 10
-end-to-end tests pass. `CLAUDE.md` tracks current state and known gaps.
+All twelve build phases are complete, and the interface has been redesigned
+([docs/UI_REDESIGN_REPORT.md](docs/UI_REDESIGN_REPORT.md)). 30 unit, 68 database and
+integration, and 15 end-to-end tests pass. `CLAUDE.md` tracks current state and known gaps.
 
 ## Requirements
 
@@ -163,9 +165,10 @@ admins manage projects and people, members read and save views, viewers read onl
 domains you list. Secret keys (`sk_live_`) are for your servers and are refused if a
 browser sends one. A key is shown once; we store only a hash. Revoking keeps the record.
 
-**Overview.** Total events, unique users, sessions and events per user, each with a
-sparkline and a comparison against the previous equivalent period. The timezone every
-number is cut in is shown next to the title, because it changes what the numbers mean.
+**Overview.** Total events, unique users, sessions and events per user, each compared
+with the previous equivalent period. Under every title a provenance line says the timezone
+the numbers are cut in, the range they cover and how fresh the aggregates are, because
+each of those changes what the numbers mean.
 
 **Events explorer.** Pick an event, filter by one property, break down by another, then
 save the whole setup as a view you can reload or share with the project.
@@ -197,7 +200,8 @@ why the numbers on the other screens are believable.
 - [docs/INGESTION.md](docs/INGESTION.md) — the public API contract.
 - [docs/RUNBOOK.md](docs/RUNBOOK.md) — symptom, diagnosis, fix.
 - [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) — the design pass, tokens and principles.
-- [docs/DECISIONS.md](docs/DECISIONS.md) — ten short architecture decision records.
+- [docs/DECISIONS.md](docs/DECISIONS.md) — thirteen short architecture decision records.
+- [docs/UI_REDESIGN_REPORT.md](docs/UI_REDESIGN_REPORT.md) — what the redesign changed and why.
 
 ## A note on secrets
 

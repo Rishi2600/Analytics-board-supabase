@@ -106,6 +106,8 @@ carries tabular figures, and every number is formatted through `lib/format.ts`.
 - **Panels.** shadcn `Card` with a one-row header: title left, control right.
 - **Tables.** shadcn `Table`. Hairline vertical rules on numeric columns only. Wide tables
   scroll inside their own container.
+- **Selected state.** A selected toggle is filled with the accent. shadcn's default fill for
+  it is the muted surface, which is 1.1:1 against this canvas and leaves the choice unseen.
 - **Content** is left aligned. Nothing is centered except empty and error states.
 - **Radius** 6px on everything.
 
@@ -253,3 +255,11 @@ Low findings from reviews, kept here until someone picks them up.
   new dependency.
 - Charts expose a legend and tooltip, but no table view of the underlying numbers for
   screen reader users.
+- On phones the explorer's four filters stack into a tall card above the chart. Collapsing
+  them behind a "Filters" disclosure would put the chart first.
+- The KPI strip repeats "vs previous period" under every number. Once, under the strip,
+  would be quieter.
+- Live shows relative times such as "in 4 hours" for seeded events whose timestamps are in
+  the future. The seed script should not produce them; the screen is right to show them.
+- The timezone picker lists the browser's own name for a zone, which can be an alias such
+  as Asia/Calcutta for Asia/Kolkata.
