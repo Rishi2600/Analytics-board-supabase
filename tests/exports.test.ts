@@ -162,6 +162,45 @@ describe('creating an export', () => {
   })
 })
 
+describe('every kind of export the reports screen offers', () => {
+  // Timeseries and breakdown exports read the rollup tables through the api schema, as the
+  // service role. They failed on every run until that role was granted the schema.
+  beforeAll(async () => {
+    const { error } = await admin.schema('jobs').rpc('run_project_rollup', {
+      p_project_id: projectId,
+      p_lag: '0 seconds',
+    })
+    if (error) throw error
+  })
+
+  const range = {
+    from: new Date(Date.now() - 86_400_000).toISOString(),
+    to: new Date(Date.now() + 86_400_000).toISOString(),
+  }
+
+  for (const [kind, params] of [
+    ['timeseries', range],
+    ['breakdown', { ...range, event: 'checkout_completed', prop: 'plan' }],
+  ] as const) {
+    it(`builds a ${kind} file with rows in it`, async () => {
+      const created = await owner.client
+        .from('exports')
+        .insert({ project_id: projectId, kind, format: 'csv', params, requested_by: owner.id })
+        .select('id')
+        .single()
+      expect(created.error).toBeNull()
+
+      const response = await invoke(
+        'export-run',
+        { export_id: created.data?.id },
+        owner.accessToken,
+      )
+      expect(response.status).toBe(200)
+      expect(Number(response.body.row_count)).toBeGreaterThan(0)
+    })
+  }
+})
+
 describe('the exports bucket is not directly readable', () => {
   it('does not let a signed-in user list or fetch objects without going through the server', async () => {
     // The bucket has no storage policies at all, so this is the only path that exists.
