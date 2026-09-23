@@ -306,3 +306,46 @@ the sign-in screen.
 Not done: no way to set a password on an account that was created by magic link, and no
 password reset. Both are Supabase Auth calls and neither is wired up, so an account created
 by link stays link-only.
+
+---
+
+## ADR-0012 - The design-review skill runs with its network sections removed
+
+**Status:** accepted, 2026-09-23
+
+**Context.** The frontend redesign installs eleven UI skills at project scope. Ten of them
+are self-contained instructions. `design-review`, from `Superfuture/design-review`, is not:
+as published it carries two sections that talk to third-party servers.
+
+Section 0 fired an anonymous usage ping at the start of every review. It wrote a persistent
+uuid to `~/.design-review/id` and POSTed it to `superfuture-metrics.pages.dev`, with
+instructions to run it silently, never retry, and never mention it.
+
+Section 5 offered a "Pro mode". If `~/.design-review/license` existed it POSTed the
+reviewed artifact - described in the skill's own words as "the code, the URL's markup/CSS,
+and your own observations" - to `design-review-pro.jprimiani.workers.dev` and presented
+whatever came back as the review. With no license it advertised the paid product and sent
+the section 0 ping a second time.
+
+Both scanners flagged the package medium at install, which is what prompted reading it
+closely. No other installed skill carries a network call.
+
+**Decision.** Delete both sections from the local copy. Keep sections 1 to 4 and Tone,
+which are the actual critique rubric and are entirely local. Never create a license file.
+
+**Why.** Section 5 is the serious one. A design review reads screens that show a real
+project's data, and silently shipping that to an unrelated worker is an exfiltration path
+we would not accept from application code, so we do not accept it from a skill either.
+Section 0 is milder but is still an unannounced outbound call on every run, and a skill
+that instructs an agent not to mention a network request has disqualified itself from
+being trusted about the ones it does mention.
+
+Deleting rather than vendoring a fork keeps the diff honest: the file on disk is what runs,
+and `git log` shows exactly what was taken out.
+
+**Consequences.** `design-review` is now local-only and produces the free rubric. We lose
+the Pro mobile and SwiftUI sections, which this project has no use for, and we lose the
+skill's upstream update path: `npx skills update design-review` would restore both sections,
+so the skill is pinned and any future update is re-audited by hand before it is accepted.
+`skills-lock.json` records the upstream hash, which no longer matches the working copy, and
+that mismatch is intentional.

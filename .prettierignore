@@ -6,3 +6,7 @@ supabase/.temp/
 
 # Generated from the database schema, never hand edited or reformatted.
 apps/web/src/types/database.ts
+
+# Vendored agent skills. Third party text, kept byte for byte so that an
+# upstream diff is readable. See ADR-0012.
+.agents/
