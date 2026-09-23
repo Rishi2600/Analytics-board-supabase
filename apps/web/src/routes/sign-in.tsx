@@ -175,7 +175,10 @@ export function SignInRoute() {
                 {isSubmitting ? copy.pending : copy.submit}
               </Button>
 
-              <FieldSeparator>or</FieldSeparator>
+              {/* The label's background has to match the card it sits on, not the page. */}
+              <FieldSeparator className="*:data-[slot=field-separator-content]:bg-card">
+                or
+              </FieldSeparator>
 
               <div className="flex flex-col gap-2">
                 <Button

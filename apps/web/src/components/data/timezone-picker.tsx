@@ -33,7 +33,8 @@ export function TimezonePicker({ id, value, onChange, ...props }: Props) {
           role="combobox"
           aria-expanded={open}
           aria-describedby={props['aria-describedby']}
-          className="w-full justify-between font-normal"
+          // A form control, so it takes the input's border and fill rather than a button's.
+          className="w-full justify-between border-input bg-transparent font-normal"
         >
           <span className="truncate">{value}</span>
           <ChevronsUpDown data-icon="inline-end" className="text-muted-foreground" />
