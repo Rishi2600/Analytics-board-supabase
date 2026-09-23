@@ -101,6 +101,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
       message,
     })
 
-    return errorResponse(ERROR_CODES.internalError, 'Could not prepare the download.', 500)
+    return errorResponse(
+      ERROR_CODES.internalError,
+      'Could not prepare the download link. Try again in a minute; the file is kept for 30 days.',
+      500,
+    )
   }
 })

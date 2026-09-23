@@ -1,3 +1,4 @@
+import { FunctionsFetchError, FunctionsHttpError } from '@supabase/supabase-js'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query-keys'
 import { supabase } from '@/lib/supabase'
@@ -66,7 +67,7 @@ export function useCreateExport(projectId: string) {
       const invoked = await supabase.functions.invoke('export-run', {
         body: { export_id: data.id },
       })
-      if (invoked.error) throw invoked.error
+      if (invoked.error) throw await readableFunctionError(invoked.error)
 
       return data.id
     },
@@ -87,8 +88,32 @@ export async function requestExportDownload(exportId: string): Promise<string> {
   const response = await supabase.functions.invoke<{ url: string }>('export-download', {
     body: { export_id: exportId },
   })
-  if (response.error) throw response.error
+  if (response.error) throw await readableFunctionError(response.error)
   const url = response.data?.url
   if (!url) throw new Error('The server did not return a download link.')
   return url
+}
+
+/**
+ * supabase-js reports every non-2xx response as "Edge Function returned a non-2xx status
+ * code", which hides the message the function wrote for the person on the screen. This
+ * reads it back out of the response body.
+ */
+async function readableFunctionError(error: unknown): Promise<Error> {
+  if (error instanceof FunctionsHttpError && error.context instanceof Response) {
+    try {
+      const body = (await error.context.json()) as { error?: { message?: string } }
+      if (body.error?.message) return new Error(body.error.message)
+    } catch {
+      // Not JSON. Fall through to the generic message below.
+    }
+  }
+  if (error instanceof FunctionsFetchError) {
+    return new Error(
+      import.meta.env.DEV
+        ? 'Could not reach the export service. Locally, start it with npm run functions.'
+        : 'Could not reach the export service. Check your connection and try again.',
+    )
+  }
+  return error instanceof Error ? error : new Error(String(error))
 }
