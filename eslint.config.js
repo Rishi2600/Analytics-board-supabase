@@ -65,6 +65,21 @@ export default tseslint.config(
   },
 
   {
+    // Same reason, for the chart and sidebar primitives added in the redesign. chart.tsx types
+    // Recharts payloads loosely, and use-mobile reads the viewport once on mount. Both are
+    // vendored and left as the CLI wrote them, so an update stays a clean overwrite.
+    files: ['apps/web/src/components/ui/chart.tsx', 'apps/web/src/hooks/use-mobile.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/restrict-template-expressions': 'off',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
+
+  {
     files: ['scripts/**/*.ts', 'packages/**/*.ts'],
     languageOptions: {
       globals: globals.node,
