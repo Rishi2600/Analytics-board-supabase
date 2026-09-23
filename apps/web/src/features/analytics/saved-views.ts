@@ -16,6 +16,7 @@ export interface SavedView {
   name: string
   query: SavedViewQuery
   is_shared: boolean
+  created_by: string | null
   created_at: string
 }
 
@@ -25,7 +26,7 @@ export function useSavedViews(projectId: string) {
     queryFn: async (): Promise<SavedView[]> => {
       const { data, error } = await supabase
         .from('saved_views')
-        .select('id, name, query, is_shared, created_at')
+        .select('id, name, query, is_shared, created_by, created_at')
         .eq('project_id', projectId)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -58,8 +59,15 @@ export function useDeleteSavedView(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (viewId: string) => {
-      const { error } = await supabase.from('saved_views').delete().eq('id', viewId)
+      const { data, error } = await supabase
+        .from('saved_views')
+        .delete()
+        .eq('id', viewId)
+        .select('id')
       if (error) throw error
+      // Row level security lets only the author delete a view. For anyone else the delete
+      // matches no rows and succeeds silently, which would look like it worked.
+      if (data.length === 0) throw new Error('Only the person who saved this view can delete it.')
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.savedViews(projectId) })

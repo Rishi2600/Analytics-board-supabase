@@ -21,16 +21,21 @@ export function useOrgMembers(orgId: string | undefined) {
   })
 }
 
+const NOT_ALLOWED = 'Only an owner or admin can change who is in this organization.'
+
 export function useUpdateMemberRole(orgId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: { userId: string; role: OrgMember['role'] }) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('org_members')
         .update({ role: input.role })
         .eq('org_id', orgId)
         .eq('user_id', input.userId)
+        .select('user_id')
       if (error) throw error
+      // Row level security turns a change you may not make into a change of zero rows.
+      if (data.length === 0) throw new Error(NOT_ALLOWED)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.orgMembers(orgId) })
@@ -43,12 +48,14 @@ export function useRemoveMember(orgId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('org_members')
         .delete()
         .eq('org_id', orgId)
         .eq('user_id', userId)
+        .select('user_id')
       if (error) throw error
+      if (data.length === 0) throw new Error(NOT_ALLOWED)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.orgMembers(orgId) })
