@@ -147,6 +147,18 @@ async function settle(page: Page, state: State): Promise<void> {
     // The live screen holds a websocket open, so it is never network idle. Its content is
     // already rendered by the time this times out.
   }
+
+  // A failed read is retried twice with backoff before the screen gives up and shows its
+  // error, about three seconds in. Shooting earlier would capture skeletons, not the error.
+  if (state === 'error') await page.waitForTimeout(4500)
+
+  // Skeletons mark themselves aria-busy. Wait for the last one to go, where the screen has any.
+  await page
+    .waitForFunction(() => document.querySelectorAll('[aria-busy="true"]').length === 0, null, {
+      timeout: 15_000,
+    })
+    .catch(() => undefined)
+
   await waitForFonts(page)
   await page.waitForTimeout(400)
 }
