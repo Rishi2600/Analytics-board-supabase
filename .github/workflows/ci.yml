@@ -102,20 +102,32 @@ jobs:
       - name: Start the Supabase stack
         run: npx supabase start
 
-      # Three flows where a failure is invisible to unit tests and fatal to the product:
-      # signing in with a magic link, creating a key that is shown exactly once, and an
-      # event travelling from the API to the live screen over Realtime.
+      # The dashboard reads its Supabase URL and anon key from apps/web/.env.local, which is
+      # gitignored. Without it the app throws at startup and renders nothing, which is why
+      # this job failed on every run before. The values are this runner's own throwaway
+      # local stack, and the anon key is public by design.
+      - name: Point the dashboard at the local stack
+        run: |
+          npx supabase status -o env > /tmp/stack.env
+          . /tmp/stack.env
+          printf 'VITE_SUPABASE_URL=%s\nVITE_SUPABASE_ANON_KEY=%s\n' "$API_URL" "$ANON_KEY" > apps/web/.env.local
+
+      # Sign-in by magic link, a key shown exactly once, an event reaching the live screen,
+      # a property breakdown export, and the accessibility guarantees: confirmation before
+      # revoking, row actions on touch, phone navigation and the skip link.
       - name: Playwright
         run: npm run test:e2e
         env:
           CI: true
 
-      - name: Upload the report when something fails
+      # The list reporter writes no HTML report in CI. Screenshots and traces of a failure
+      # land in test-results/, so that is what gets kept.
+      - name: Upload screenshots and traces when something fails
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-results
+          path: test-results/
           retention-days: 7
 
       - name: Stop the Supabase stack
