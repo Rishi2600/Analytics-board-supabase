@@ -90,7 +90,7 @@ work. "New project" never submitted. Retention showed 0% for weeks that had not 
 - **Charts have no table view** for screen reader users.
 - **Small polish items** are listed at the end of `docs/DESIGN_SYSTEM.md`.
 - **Checkpoints:** you asked me to work straight through, so the `/interface-review`
-  checkpoints did not happen. The full range is `main..ui-redesign`, 23 commits.
+  checkpoints did not happen. The full range is `main..ui-redesign`.
 - **Commit hygiene:** the redesign itself went in as one large commit (`52eb65c`). Commit
   `3fe8849` also carries three file deletions that belong to it. I did not rewrite history.
 
