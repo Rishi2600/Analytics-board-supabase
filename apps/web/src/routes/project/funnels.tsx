@@ -104,7 +104,7 @@ function FunnelSteps({ steps }: { steps: FunnelStep[] }) {
             />
           </div>
           {step.step_index > 0 ? (
-            <p className="ml-8 text-xs text-muted-foreground">
+            <p className="tabular ml-8 text-xs text-muted-foreground">
               {formatPercent(step.conversion_from_previous)} of the previous step continued,{' '}
               {formatPercent(1 - step.conversion_from_previous)} dropped off.
             </p>

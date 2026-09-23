@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -89,10 +89,10 @@ export function ExplorerFilterBar({ value, onChange, eventNames, propertyKeys }:
             />
           </Field>
         </FieldGroup>
-        <FieldDescription className="mt-3 text-xs">
+        <p className="mt-4 text-xs text-pretty text-muted-foreground">
           One property filter at a time. Filters read pre-aggregated data, and combining several
           would need an aggregate for every combination of properties.
-        </FieldDescription>
+        </p>
       </CardContent>
     </Card>
   )

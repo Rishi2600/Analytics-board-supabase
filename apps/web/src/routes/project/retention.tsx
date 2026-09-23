@@ -9,7 +9,7 @@ import { TableSkeleton } from '@/components/feedback/skeletons'
 import { PageHeader } from '@/components/layout/page-header'
 import { Provenance } from '@/components/layout/provenance'
 import { Card, CardContent } from '@/components/ui/card'
-import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import {
   Select,
   SelectContent,
@@ -109,10 +109,10 @@ export function RetentionRoute() {
                 onChange={setReturnEvent}
               />
             </FieldGroup>
-            <FieldDescription className="mt-3 text-xs">
+            <p className="mt-4 text-xs text-pretty text-muted-foreground">
               A person joins the cohort of their first ever cohort event, not their first one in
               this range, so nobody moves between cohorts when the dates change.
-            </FieldDescription>
+            </p>
           </CardContent>
         </Card>
 

@@ -11,7 +11,10 @@ const toggleVariants = cva(
     variants: {
       variant: {
         default: 'bg-transparent',
-        outline: 'border border-input bg-transparent hover:bg-muted',
+        // The selected item is filled with the accent. The default muted fill is 1.1:1 against
+        // this project's canvas, which leaves the choice invisible.
+        outline:
+          'border border-input bg-transparent hover:bg-muted data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:hover:bg-primary/90',
       },
       size: {
         default:
