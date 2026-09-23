@@ -30,7 +30,8 @@
     "db:reset": "supabase db reset",
     "functions": "supabase functions serve",
     "db:types": "supabase gen types typescript --local --schema public --schema api --schema jobs > apps/web/src/types/database.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "screenshots": "node scripts/screenshots.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

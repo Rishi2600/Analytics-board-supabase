@@ -29,3 +29,7 @@ test-results/
 *.log
 npm-debug.log*
 e2e/.auth/
+reviews/
+
+#docs
+docs/screenshots/

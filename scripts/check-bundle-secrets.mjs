@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Fails if real secret material reached the built frontend bundle.
+ * Fails if real secret material, or development-only code, reached the built frontend
+ * bundle.
  *
  * The dashboard bundle is public. The anon key belongs there; a service role key or a
  * customer's secret API key does not.
@@ -30,6 +31,14 @@ const KEY_PATTERNS = [
 
 // Three base64url segments. Candidates are decoded rather than pattern matched.
 const JWT_RE = /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g
+
+// Development-only code that must not ship. `lib/dev-state.ts` lets a URL parameter force
+// every read into a loading, empty or error state, which is a debugging aid in dev and a
+// way to make a customer's dashboard lie in production. It is guarded by
+// `import.meta.env.DEV`; this proves the guard actually removed it.
+const DEV_ONLY_MARKERS = [
+  { name: 'forced state override (lib/dev-state.ts)', text: 'forced-state-override' },
+]
 
 function walk(dir) {
   const found = []
@@ -87,15 +96,19 @@ for (const file of files) {
       findings.push(`${file}: JWT with role "${role}"`)
     }
   }
+
+  for (const { name, text } of DEV_ONLY_MARKERS) {
+    if (content.includes(text)) findings.push(`${file}: ${name}`)
+  }
 }
 
 if (findings.length > 0) {
-  console.error(`check-bundle-secrets: FAIL - secret material in ${bundleDir}`)
+  console.error(`check-bundle-secrets: FAIL - ${bundleDir} contains what it must not`)
   for (const finding of findings) console.error(`  ${finding}`)
   process.exit(1)
 }
 
 console.log(
   `check-bundle-secrets: ok - scanned ${files.length} files in ${bundleDir}, ` +
-    'no service role or secret key material',
+    'no service role or secret key material, no development-only code',
 )

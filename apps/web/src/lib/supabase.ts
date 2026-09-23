@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { stateAwareFetch } from './dev-state'
 import { env } from './env'
 
 /**
@@ -18,6 +19,11 @@ export const supabase = createClient<Database>(env.VITE_SUPABASE_URL, env.VITE_S
     detectSessionInUrl: true,
     flowType: 'pkce',
   },
+  // Development only. Lets `?state=empty` and friends put every screen into a state that
+  // is otherwise hard to produce on a working stack. `import.meta.env.DEV` is a literal
+  // false in a production build, so this branch and the module behind it are dropped
+  // rather than merely unreachable. See lib/dev-state.ts.
+  global: import.meta.env.DEV ? { fetch: stateAwareFetch } : {},
 })
 
 /** Read facing SQL functions live in the api schema and are called through this. */
