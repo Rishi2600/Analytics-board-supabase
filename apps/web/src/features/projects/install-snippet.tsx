@@ -20,13 +20,15 @@ export function InstallSnippet({ projectId }: { projectId: string }) {
   const ingestUrl = `${env.VITE_SUPABASE_URL}/functions/v1`
 
   useEffect(() => {
-    // Someone who installed the snippet yesterday should not see "waiting" forever.
+    // Someone who installed the snippet yesterday should not see "waiting" forever. One row
+    // answers the question; an exact count scans every event under row level security.
     void supabase
       .from('events_raw')
-      .select('id', { head: true, count: 'exact' })
+      .select('id')
       .eq('project_id', projectId)
-      .then(({ count }) => {
-        if ((count ?? 0) > 0) setFirstEventSeen(true)
+      .limit(1)
+      .then(({ data }) => {
+        if (data && data.length > 0) setFirstEventSeen(true)
       })
 
     const channel = supabase

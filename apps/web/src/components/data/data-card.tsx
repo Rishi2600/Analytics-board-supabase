@@ -35,8 +35,12 @@ export function DataCard({
         <CardTitle>
           <h2>{title}</h2>
         </CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-        {action ? <CardAction>{action}</CardAction> : null}
+        {/* With an action beside the title, the description runs full width underneath it
+            rather than squeezing into the column left of the button. */}
+        {description ? (
+          <CardDescription className={cn(action && 'col-span-2')}>{description}</CardDescription>
+        ) : null}
+        {action ? <CardAction className="row-span-1">{action}</CardAction> : null}
       </CardHeader>
       <div className="min-w-0">{children}</div>
       {footer ? (
