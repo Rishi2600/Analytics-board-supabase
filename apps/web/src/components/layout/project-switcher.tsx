@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -24,39 +25,45 @@ export function ProjectSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="-ml-1 gap-2 font-normal">
-          <span className="truncate">
-            {orgName ? <span className="text-muted-foreground">{orgName} / </span> : null}
-            {current?.name ?? 'Select project'}
-          </span>
-          <ChevronsUpDown size={16} className="text-muted-foreground" />
+        {/* The trigger may shorten a long name on a phone. The menu shows every name in full. */}
+        <Button variant="ghost" className="min-w-0 justify-start font-normal">
+          {orgName ? (
+            <span className="hidden text-muted-foreground sm:inline">{orgName} /</span>
+          ) : null}
+          <span className="truncate font-medium">{current?.name ?? 'Choose a project'}</span>
+          <ChevronsUpDown data-icon="inline-end" className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel>Projects</DropdownMenuLabel>
-        {projects.data?.length ? (
-          projects.data.map((project) => (
-            <DropdownMenuItem
-              key={project.id}
-              onSelect={() => {
-                void navigate(`/p/${project.id}/overview`)
-              }}
-            >
-              <Check size={16} className={project.id === projectId ? 'opacity-100' : 'opacity-0'} />
-              <span className="truncate">{project.name}</span>
-            </DropdownMenuItem>
-          ))
-        ) : (
-          <DropdownMenuItem disabled>No projects yet</DropdownMenuItem>
-        )}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{orgName ?? 'Projects'}</DropdownMenuLabel>
+          {projects.data?.length ? (
+            projects.data.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                onSelect={() => {
+                  void navigate(`/p/${project.id}/overview`)
+                }}
+              >
+                <span className="min-w-0 flex-1 break-words">{project.name}</span>
+                {project.id === projectId ? <Check aria-label="Current project" /> : null}
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled>No projects yet</DropdownMenuItem>
+          )}
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => {
-            void navigate('/onboarding')
-          }}
-        >
-          <Plus size={16} /> New project
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            onSelect={() => {
+              void navigate('/onboarding')
+            }}
+          >
+            <Plus />
+            New project
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

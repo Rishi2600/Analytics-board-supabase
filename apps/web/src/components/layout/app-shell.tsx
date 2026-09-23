@@ -1,76 +1,37 @@
-import { PanelLeft } from 'lucide-react'
 import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useAuth } from '@/features/auth/use-auth'
+import { Outlet, useLocation } from 'react-router'
+import { RouteErrorBoundary } from '@/components/feedback/route-error-boundary'
+import { SidebarProvider } from '@/components/ui/sidebar'
+import { AppSidebar } from './app-sidebar'
 import { CommandPalette } from './command-palette'
-import { ProjectSwitcher } from './project-switcher'
-import { Sidebar } from './sidebar'
-import { ThemeToggle } from './theme-toggle'
+import { TopBar } from './top-bar'
 
 export function AppShell() {
-  const [collapsed, setCollapsed] = useState(false)
-  const { user, signOut } = useAuth()
-  const navigate = useNavigate()
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const { pathname } = useLocation()
 
   return (
-    <div className="flex h-svh flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-expanded={!collapsed}
-          onClick={() => {
-            setCollapsed((previous) => !previous)
+    <SidebarProvider>
+      <a
+        href="#content"
+        className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm font-medium ring-2 ring-ring focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+      >
+        Skip to content
+      </a>
+      <AppSidebar />
+      <div className="flex min-w-0 flex-1 flex-col bg-background">
+        <TopBar
+          onOpenPalette={() => {
+            setPaletteOpen(true)
           }}
-        >
-          <PanelLeft size={16} />
-        </Button>
-
-        <ProjectSwitcher />
-
-        <div className="ml-auto flex items-center gap-1">
-          <ThemeToggle />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="font-normal">
-                {user?.email ?? 'Account'}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                {user?.email}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => {
-                  void signOut().then(() => navigate('/sign-in', { replace: true }))
-                }}
-              >
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <Sidebar collapsed={collapsed} />
-        <main className="min-w-0 flex-1 overflow-y-auto">
-          <Outlet />
+        />
+        <main id="content" tabIndex={-1} className="flex-1 outline-none">
+          <RouteErrorBoundary key={pathname}>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
-
-      <CommandPalette />
-    </div>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+    </SidebarProvider>
   )
 }

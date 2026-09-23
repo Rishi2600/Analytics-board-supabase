@@ -11,16 +11,18 @@ export function pivotSeries(rows: TimeseriesPoint[]): {
   resolution: string
 } {
   const byBucket = new Map<string, SeriesPoint>()
-  const series = new Set<string>()
+  const totals = new Map<string, number>()
 
   for (const row of rows) {
-    series.add(row.event_name)
+    totals.set(row.event_name, (totals.get(row.event_name) ?? 0) + row.event_count)
     const existing = byBucket.get(row.bucket) ?? { bucket: row.bucket }
     existing[row.event_name] = row.event_count
     byBucket.set(row.bucket, existing)
   }
 
-  const seriesNames = [...series]
+  // Largest first: the chart shows at most six series, and the first colours are the most
+  // distinct, so they go to the series people look at most.
+  const seriesNames = [...totals.entries()].sort((a, b) => b[1] - a[1]).map(([name]) => name)
   const data = [...byBucket.values()].sort((a, b) => a.bucket.localeCompare(b.bucket))
 
   // A gap in a line chart is ambiguous: it reads as missing data rather than as zero. The
@@ -32,13 +34,4 @@ export function pivotSeries(rows: TimeseriesPoint[]): {
   }
 
   return { data, series: seriesNames, resolution: rows[0]?.resolution ?? 'day' }
-}
-
-/** Collapses a multi-series result into one total per bucket, for the sparkline. */
-export function totalsByBucket(rows: TimeseriesPoint[]): number[] {
-  const totals = new Map<string, number>()
-  for (const row of rows) {
-    totals.set(row.bucket, (totals.get(row.bucket) ?? 0) + row.event_count)
-  }
-  return [...totals.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([, v]) => v)
 }

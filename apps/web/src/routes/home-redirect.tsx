@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router'
 import { ErrorState } from '@/components/feedback/error-state'
+import { AuthLayout } from '@/components/layout/auth-layout'
 import { useProjects } from '@/features/projects/api'
 
 /**
@@ -14,14 +15,15 @@ export function HomeRedirect() {
 
   if (projects.isError) {
     return (
-      <main className="flex min-h-svh items-center justify-center p-6">
+      <AuthLayout title="Your projects did not load">
         <ErrorState
-          title="We could not load your projects"
-          description="The database did not answer. This is usually a connection problem rather than anything wrong with your account."
+          className="p-0"
+          title="The database did not answer"
+          description="This is usually a connection problem rather than anything wrong with your account. Try again."
           error={projects.error}
           onRetry={() => void projects.refetch()}
         />
-      </main>
+      </AuthLayout>
     )
   }
 

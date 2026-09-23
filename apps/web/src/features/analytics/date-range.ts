@@ -19,6 +19,11 @@ export interface RangePreset {
  */
 export const RANGE_PRESETS: RangePreset[] = [
   {
+    id: 'today',
+    label: 'Today',
+    build: () => ({ from: startOfDay(new Date()), to: endOfDay(new Date()) }),
+  },
+  {
     id: '24h',
     label: 'Last 24 hours',
     build: () => ({ from: subHours(new Date(), 24), to: new Date() }),
@@ -38,17 +43,15 @@ export const RANGE_PRESETS: RangePreset[] = [
     label: 'Last 90 days',
     build: () => ({ from: subDays(new Date(), 90), to: new Date() }),
   },
-  {
-    id: 'today',
-    label: 'Today',
-    build: () => ({ from: startOfDay(new Date()), to: endOfDay(new Date()) }),
-  },
 ]
 
 export const DEFAULT_PRESET = '7d'
 
 export function presetById(id: string): RangePreset {
-  return RANGE_PRESETS.find((p) => p.id === id) ?? RANGE_PRESETS[1]!
+  const preset =
+    RANGE_PRESETS.find((p) => p.id === id) ?? RANGE_PRESETS.find((p) => p.id === DEFAULT_PRESET)
+  if (!preset) throw new Error(`No date range preset called ${DEFAULT_PRESET}`)
+  return preset
 }
 
 /** Ranges are serialised into query keys, so they need a stable representation. */

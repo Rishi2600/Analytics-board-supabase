@@ -3,42 +3,49 @@ import { ErrorState } from '@/components/feedback/error-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { KeysTable } from '@/features/keys/keys-table'
 import { AuditLogPanel } from '@/features/orgs/audit-log-panel'
 import { MembersPanel } from '@/features/orgs/members-panel'
-import { KeysTable } from '@/features/keys/keys-table'
+import { useProject } from '@/features/projects/api'
 import { InstallSnippet } from '@/features/projects/install-snippet'
 import { ProjectSettingsForm } from '@/features/projects/project-settings-form'
-import { useProject } from '@/features/projects/api'
 
-const TABS = ['install', 'project', 'keys', 'members', 'audit'] as const
+const TABS = [
+  { value: 'install', label: 'Install' },
+  { value: 'project', label: 'Project' },
+  { value: 'keys', label: 'API keys' },
+  { value: 'members', label: 'Members' },
+  { value: 'audit', label: 'Audit log' },
+] as const
 
 export function SettingsRoute() {
-  const { projectId } = useParams<{ projectId: string }>()
+  const { projectId = '' } = useParams<{ projectId: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const project = useProject(projectId)
 
   const requested = searchParams.get('tab')
-  const active = TABS.find((t) => t === requested) ?? 'install'
+  const active = TABS.find((t) => t.value === requested)?.value ?? 'install'
 
   if (project.isPending) {
     return (
       <>
         <PageHeader title="Settings" />
-        <div className="space-y-3 p-6">
-          <Skeleton className="h-9 w-80" />
+        <div className="flex flex-col gap-4 p-4 sm:p-6" aria-busy="true">
+          <Skeleton className="h-8 w-80 max-w-full" />
           <Skeleton className="h-64 w-full" />
         </div>
       </>
     )
   }
 
-  if (project.isError || !projectId) {
+  if (project.isError) {
     return (
       <>
         <PageHeader title="Settings" />
         <ErrorState
-          title="We could not load this project"
-          description="It may have been deleted, or you may no longer have access to it."
+          className="p-4 sm:p-6"
+          title="This project did not load"
+          description="It may have been deleted, or you may no longer have access to it. Try again, or pick another project from the switcher."
           error={project.error}
           onRetry={() => void project.refetch()}
         />
@@ -48,7 +55,9 @@ export function SettingsRoute() {
 
   return (
     <>
-      <PageHeader title="Settings" meta={project.data.name} />
+      <PageHeader title="Settings">
+        <p className="text-sm wrap-anywhere text-muted-foreground">{project.data.name}</p>
+      </PageHeader>
 
       <Tabs
         value={active}
@@ -56,15 +65,19 @@ export function SettingsRoute() {
           setSearchParams({ tab: next }, { replace: true })
         }}
       >
-        <TabsList className="mx-6 mt-4">
-          <TabsTrigger value="install">Install</TabsTrigger>
-          <TabsTrigger value="project">Project</TabsTrigger>
-          <TabsTrigger value="keys">API keys</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          <TabsTrigger value="audit">Audit log</TabsTrigger>
-        </TabsList>
+        {/* Five tabs are wider than a phone. The rail scrolls, and the next tab peeks past the
+            edge so it is clear there is more. */}
+        <div className="overflow-x-auto border-b px-4 sm:px-6">
+          <TabsList variant="line" className="h-10">
+            {TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-        <div className="m-6 rounded-md border bg-card">
+        <div className="p-4 sm:p-6">
           <TabsContent value="install">
             <InstallSnippet projectId={projectId} />
           </TabsContent>

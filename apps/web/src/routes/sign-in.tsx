@@ -1,104 +1,31 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff } from 'lucide-react'
+import { CircleAlert, Eye, EyeOff, MailCheck } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Navigate, useSearchParams } from 'react-router'
-import { z } from 'zod'
+import { AuthLayout } from '@/components/layout/auth-layout'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldSeparator } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { Spinner } from '@/components/ui/spinner'
+import { readableAuthError } from '@/features/auth/auth-errors'
+import { COPY, schema, type FormValues, type Mode } from '@/features/auth/sign-in-schema'
 import { useAuth } from '@/features/auth/use-auth'
-import { errorMessage } from '@/lib/errors'
-
-/** Sign in with a password, create an account, or have a link emailed instead. */
-type Mode = 'password' | 'signup' | 'magic'
-
-const MIN_PASSWORD = 8
-
-/**
- * One form, three ways in.
- *
- * The mode is part of the form values rather than separate state, so the schema can
- * validate against it: a password is required to sign in, has a length floor to sign up,
- * and is not asked for at all when the person wants a link emailed.
- */
-const schema = z
-  .object({
-    mode: z.enum(['password', 'signup', 'magic']),
-    email: z.email('Enter the email address for your account'),
-    password: z.string(),
-  })
-  .superRefine((values, ctx) => {
-    if (values.mode === 'password' && values.password.length === 0) {
-      ctx.addIssue({ code: 'custom', path: ['password'], message: 'Enter your password' })
-    }
-    if (values.mode === 'signup' && values.password.length < MIN_PASSWORD) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['password'],
-        message: `Use at least ${String(MIN_PASSWORD)} characters`,
-      })
-    }
-  })
-
-type FormValues = z.infer<typeof schema>
-
-interface Notice {
-  title: string
-  body: string
-}
-
-/**
- * Auth's messages are written for developers. These are written for the person stuck on
- * the screen, and each one says what to do next.
- */
-function readableAuthError(error: unknown): string {
-  const message = errorMessage(error)
-  const lower = message.toLowerCase()
-
-  if (lower.includes('invalid login credentials')) {
-    return 'That email and password do not match an account. Check them, or have a sign-in link emailed instead.'
-  }
-  if (lower.includes('email not confirmed')) {
-    return 'This account has not been confirmed yet. Open the confirmation email, then sign in.'
-  }
-  if (lower.includes('already registered') || lower.includes('already exists')) {
-    return 'An account with that email already exists. Sign in instead.'
-  }
-  if (lower.includes('password should be') || lower.includes('weak password')) {
-    return `That password is too short. Use at least ${String(MIN_PASSWORD)} characters.`
-  }
-  if (lower.includes('rate limit') || lower.includes('too many')) {
-    return 'Too many attempts just now. Wait a minute, then try again.'
-  }
-  return message
-}
-
-const COPY: Record<Mode, { submit: string; pending: string; hint: string }> = {
-  password: {
-    submit: 'Sign in',
-    pending: 'Signing in',
-    hint: 'Sign in with your email and password, or have a link emailed to you.',
-  },
-  signup: {
-    submit: 'Create account',
-    pending: 'Creating account',
-    hint: `Pick a password of at least ${String(MIN_PASSWORD)} characters.`,
-  },
-  magic: {
-    submit: 'Send sign-in link',
-    pending: 'Sending link',
-    hint: 'We email a link that signs you in. No password needed.',
-  },
-}
 
 export function SignInRoute() {
   const { status, signInWithEmail, signInWithPassword, signUpWithPassword, signInWithGitHub } =
     useAuth()
   const [searchParams] = useSearchParams()
   const [mode, setMode] = useState<Mode>('password')
-  const [notice, setNotice] = useState<Notice | null>(null)
+  const [sentTo, setSentTo] = useState<{ email: string; kind: 'link' | 'confirm' } | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [gitHubPending, setGitHubPending] = useState(false)
@@ -124,27 +51,15 @@ export function SignInRoute() {
     try {
       if (values.mode === 'magic') {
         await signInWithEmail(values.email)
-        setNotice({
-          title: 'Check your email',
-          body: `We sent a sign-in link to ${values.email}. It works once and expires in an hour.`,
-        })
-        return
-      }
-
-      if (values.mode === 'signup') {
+        setSentTo({ email: values.email, kind: 'link' })
+      } else if (values.mode === 'signup') {
         const { signedIn } = await signUpWithPassword(values.email, values.password)
-        if (!signedIn) {
-          setNotice({
-            title: 'Confirm your email',
-            body: `We sent a confirmation link to ${values.email}. Open it, then sign in with your password.`,
-          })
-        }
-        // When the account is live immediately, the session arrives through the auth
+        // When the account is live straight away, the session arrives through the auth
         // listener and this screen redirects on its own.
-        return
+        if (!signedIn) setSentTo({ email: values.email, kind: 'confirm' })
+      } else {
+        await signInWithPassword(values.email, values.password)
       }
-
-      await signInWithPassword(values.email, values.password)
     } catch (error) {
       setFailure(readableAuthError(error))
     }
@@ -161,182 +76,144 @@ export function SignInRoute() {
     }
   }
 
+  if (sentTo) {
+    return (
+      <AuthLayout title="Check your email">
+        <Alert role="status">
+          <MailCheck />
+          <AlertTitle>
+            {sentTo.kind === 'link' ? 'Sign-in link sent' : 'Confirmation link sent'}
+          </AlertTitle>
+          <AlertDescription>
+            {sentTo.kind === 'link'
+              ? `We sent a link to ${sentTo.email}. It works once and expires in an hour.`
+              : `We sent a confirmation link to ${sentTo.email}. Open it, then sign in with your password.`}
+          </AlertDescription>
+        </Alert>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSentTo(null)
+          }}
+        >
+          Back to sign in
+        </Button>
+      </AuthLayout>
+    )
+  }
+
   const copy = COPY[mode]
-  const passwordError = form.formState.errors.password?.message
-  const emailError = form.formState.errors.email?.message
+  const { errors, isSubmitting } = form.formState
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <div className="w-full max-w-sm">
-        <h1 className="text-lg font-medium">Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {mode === 'signup'
-            ? 'Create an account to start collecting.'
-            : 'Sign in to see your product data.'}
-        </p>
-
-        <div className="mt-6 rounded-md border bg-card p-5">
-          {notice ? (
-            <div>
-              <p className="text-sm font-medium">{notice.title}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{notice.body}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => {
-                  setNotice(null)
-                }}
-              >
-                Back to sign in
-              </Button>
-            </div>
-          ) : (
-            <>
-              <form
-                onSubmit={(event) => {
-                  void onSubmit(event)
-                }}
-                noValidate
-              >
-                <Label htmlFor="email">Email</Label>
+    <AuthLayout title={copy.title} description={copy.description}>
+      <Card>
+        <CardContent>
+          <form
+            onSubmit={(event) => {
+              void onSubmit(event)
+            }}
+            noValidate
+          >
+            <FieldGroup>
+              <Field data-invalid={errors.email ? true : undefined}>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
                 <Input
                   id="email"
                   type="email"
                   autoComplete="email"
                   placeholder="you@company.com"
-                  className="mt-1.5"
-                  aria-invalid={Boolean(emailError)}
-                  aria-describedby={emailError ? 'email-error' : undefined}
+                  aria-invalid={errors.email ? true : undefined}
+                  aria-describedby={errors.email ? 'email-error' : undefined}
                   {...form.register('email')}
                 />
-                {emailError ? (
-                  <p id="email-error" className="mt-1.5 text-xs text-destructive">
-                    {emailError}
-                  </p>
+                {errors.email ? (
+                  <FieldError id="email-error">{errors.email.message}</FieldError>
                 ) : null}
+              </Field>
 
-                {mode === 'magic' ? null : (
-                  <div className="mt-4">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative mt-1.5">
-                      <Input
-                        id="password"
-                        type={showPassword ? 'text' : 'password'}
-                        autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                        className="pr-10"
-                        aria-invalid={Boolean(passwordError)}
-                        aria-describedby={passwordError ? 'password-error' : undefined}
-                        {...form.register('password')}
-                      />
-                      <button
-                        type="button"
+              {mode === 'magic' ? null : (
+                <Field data-invalid={errors.password ? true : undefined}>
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <InputGroup>
+                    <InputGroupInput
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      aria-invalid={errors.password ? true : undefined}
+                      aria-describedby={errors.password ? 'password-error' : undefined}
+                      {...form.register('password')}
+                    />
+                    <InputGroupAddon align="inline-end">
+                      <InputGroupButton
+                        size="icon-xs"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                         onClick={() => {
                           setShowPassword((previous) => !previous)
                         }}
-                        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
                       >
-                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                      </button>
-                    </div>
-                    {passwordError ? (
-                      <p id="password-error" className="mt-1.5 text-xs text-destructive">
-                        {passwordError}
-                      </p>
-                    ) : null}
-                  </div>
-                )}
+                        {showPassword ? <EyeOff /> : <Eye />}
+                      </InputGroupButton>
+                    </InputGroupAddon>
+                  </InputGroup>
+                  {errors.password ? (
+                    <FieldError id="password-error">{errors.password.message}</FieldError>
+                  ) : null}
+                </Field>
+              )}
 
+              {failure ? (
+                <Alert variant="destructive">
+                  <CircleAlert />
+                  <AlertTitle>Not signed in</AlertTitle>
+                  <AlertDescription>{failure}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? <Spinner data-icon="inline-start" /> : null}
+                {isSubmitting ? copy.pending : copy.submit}
+              </Button>
+
+              <FieldSeparator>or</FieldSeparator>
+
+              <div className="flex flex-col gap-2">
                 <Button
-                  type="submit"
-                  className="mt-4 w-full"
-                  disabled={form.formState.isSubmitting}
-                >
-                  {form.formState.isSubmitting ? copy.pending : copy.submit}
-                </Button>
-              </form>
-
-              <div className="my-4 flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs text-muted-foreground">or</span>
-                <Separator className="flex-1" />
-              </div>
-
-              <div className="grid gap-2">
-                {mode === 'magic' ? (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      switchTo('password')
-                    }}
-                  >
-                    Use a password instead
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => {
-                      switchTo('magic')
-                    }}
-                  >
-                    Email me a sign-in link
-                  </Button>
-                )}
-
-                <Button
+                  type="button"
                   variant="outline"
-                  className="w-full"
+                  onClick={() => {
+                    switchTo(mode === 'magic' ? 'password' : 'magic')
+                  }}
+                >
+                  {mode === 'magic' ? 'Use a password instead' : 'Email me a sign-in link'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
                   onClick={() => void onGitHub()}
                   disabled={gitHubPending}
                 >
+                  {gitHubPending ? <Spinner data-icon="inline-start" /> : null}
                   {gitHubPending ? 'Opening GitHub' : 'Continue with GitHub'}
                 </Button>
               </div>
-            </>
-          )}
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
 
-          {failure ? (
-            <p className="mt-4 text-xs text-destructive" role="alert">
-              {failure}
-            </p>
-          ) : null}
-        </div>
-
-        {notice ? null : (
-          <p className="mt-4 text-xs text-muted-foreground">
-            {mode === 'signup' ? (
-              <>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  className="rounded-sm text-foreground underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => {
-                    switchTo('password')
-                  }}
-                >
-                  Sign in
-                </button>
-              </>
-            ) : (
-              <>
-                {copy.hint}{' '}
-                <button
-                  type="button"
-                  className="rounded-sm text-foreground underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  onClick={() => {
-                    switchTo('signup')
-                  }}
-                >
-                  Create an account
-                </button>
-              </>
-            )}
-          </p>
-        )}
-      </div>
-    </main>
+      <p className="text-center text-sm text-muted-foreground">
+        {mode === 'signup' ? 'Already have an account?' : 'New here?'}{' '}
+        <Button
+          variant="link"
+          className="h-auto p-0"
+          onClick={() => {
+            switchTo(mode === 'signup' ? 'password' : 'signup')
+          }}
+        >
+          {mode === 'signup' ? 'Sign in' : 'Create an account'}
+        </Button>
+      </p>
+    </AuthLayout>
   )
 }

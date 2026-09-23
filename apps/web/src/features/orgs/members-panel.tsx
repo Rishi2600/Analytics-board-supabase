@@ -1,23 +1,17 @@
-import { Check, Copy } from 'lucide-react'
+import { Users } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/data/confirm-dialog'
+import { DataCard } from '@/components/data/data-card'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
 import { TableSkeleton } from '@/components/feedback/skeletons'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -30,151 +24,128 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { useAuth } from '@/features/auth/use-auth'
 import { errorMessage } from '@/lib/errors'
 import { formatRelative } from '@/lib/format'
-import {
-  useCreateInvite,
-  useOrgMembers,
-  useRemoveMember,
-  useUpdateMemberRole,
-  type OrgMember,
-} from './members-api'
-
-const ROLE_HELP: Record<OrgMember['role'], string> = {
-  owner: 'Everything, including deleting the organization',
-  admin: 'Projects, keys and people',
-  member: 'Read the dashboard and save views',
-  viewer: 'Read only',
-}
+import { ROLE_LABELS } from '@/lib/labels'
+import { InviteDialog } from './invite-dialog'
+import { useOrgMembers, useRemoveMember, useUpdateMemberRole, type OrgMember } from './members-api'
 
 export function MembersPanel({ orgId }: { orgId: string }) {
+  const { user } = useAuth()
   const members = useOrgMembers(orgId)
   const updateRole = useUpdateMemberRole(orgId)
   const removeMember = useRemoveMember(orgId)
-  const createInvite = useCreateInvite(orgId)
-
   const [inviting, setInviting] = useState(false)
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'admin' | 'member' | 'viewer'>('member')
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [removing, setRemoving] = useState<OrgMember | null>(null)
 
-  const onInvite = async () => {
+  const onRoleChange = (member: OrgMember, role: OrgMember['role']) => {
+    updateRole.mutate(
+      { userId: member.user_id, role },
+      {
+        onSuccess: () =>
+          toast.success(`${member.email} is now ${ROLE_LABELS[role]?.toLowerCase() ?? role}`),
+        onError: (error) => toast.error(errorMessage(error)),
+      },
+    )
+  }
+
+  const onRemove = async () => {
+    if (!removing) return
     try {
-      const created = await createInvite.mutateAsync({ email: email.trim(), role })
-      setInviteLink(`${window.location.origin}/invite/${created.token}`)
-      toast.success('Invite created')
+      await removeMember.mutateAsync(removing.user_id)
+      toast.success('Member removed')
+      setRemoving(null)
     } catch (error) {
       toast.error(errorMessage(error))
     }
   }
 
-  const onCopyLink = async () => {
-    if (!inviteLink) return
-    try {
-      await navigator.clipboard.writeText(inviteLink)
-      setCopied(true)
-      toast.success('Invite link copied')
-    } catch {
-      toast.error('Could not reach the clipboard. Select the link and copy it manually.')
-    }
-  }
-
-  const closeInvite = () => {
-    setInviting(false)
-    setInviteLink(null)
-    setEmail('')
-    setCopied(false)
-  }
-
   return (
-    <section>
-      <div className="flex items-center justify-between border-b px-6 py-3">
-        <h2 className="text-sm font-medium">Members</h2>
+    <DataCard
+      title="Members"
+      description="Everyone in this organization can see its projects. Roles decide what else they can do."
+      action={
         <Button
-          size="sm"
           onClick={() => {
             setInviting(true)
           }}
         >
           Invite member
         </Button>
-      </div>
-
+      }
+      footer="An organization always keeps at least one owner. The last owner cannot be removed or given a lower role."
+    >
       {members.isPending ? (
         <TableSkeleton rows={3} columns={3} />
       ) : members.isError ? (
         <ErrorState
-          title="We could not load the member list"
-          description="Everyone's access is unchanged. This is a read that failed, not a permission problem."
+          title="The member list did not load"
+          description="Everyone's access is unchanged; this is a read that failed. Try again."
           error={members.error}
           onRetry={() => void members.refetch()}
         />
       ) : members.data.length === 0 ? (
         <EmptyState
+          icon={Users}
           title="No members yet"
-          description="Invite the people who need to read or manage this project's data."
+          description="Invite the people who need to read or manage this organization's data."
         />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Email</TableHead>
+              <TableHead className="pl-4">Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Joined</TableHead>
-              <TableHead className="w-24" />
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {members.data.map((member) => (
-              <TableRow key={member.user_id} className="group">
-                <TableCell className="font-medium">{member.email}</TableCell>
+              <TableRow key={member.user_id} className="group/row">
+                <TableCell className="pl-4 font-medium wrap-anywhere whitespace-normal">
+                  {member.email}{' '}
+                  {member.user_id === user?.id ? <Badge variant="secondary">You</Badge> : null}
+                </TableCell>
                 <TableCell>
                   <Select
                     value={member.role}
-                    onValueChange={(next) => {
-                      updateRole.mutate(
-                        { userId: member.user_id, role: next as OrgMember['role'] },
-                        {
-                          onError: (error) => {
-                            toast.error(errorMessage(error))
-                          },
-                          onSuccess: () => {
-                            toast.success('Role updated')
-                          },
-                        },
-                      )
+                    onValueChange={(role) => {
+                      onRoleChange(member, role as OrgMember['role'])
                     }}
                   >
-                    <SelectTrigger className="h-8 w-36" size="sm">
+                    <SelectTrigger
+                      size="sm"
+                      className="w-32"
+                      aria-label={`Role for ${member.email}`}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(['owner', 'admin', 'member', 'viewer'] as const).map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {value}
-                        </SelectItem>
-                      ))}
+                      <SelectGroup>
+                        {(['owner', 'admin', 'member', 'viewer'] as const).map((value) => (
+                          <SelectItem key={value} value={value}>
+                            {ROLE_LABELS[value]}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className="border-l text-xs text-muted-foreground">
+                <TableCell className="text-muted-foreground">
                   {formatRelative(member.created_at)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-4 text-right">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                    className="row-actions"
+                    aria-label={`Remove ${member.email}`}
                     onClick={() => {
-                      removeMember.mutate(member.user_id, {
-                        onError: (error) => {
-                          toast.error(errorMessage(error))
-                        },
-                        onSuccess: () => {
-                          toast.success('Member removed')
-                        },
-                      })
+                      setRemoving(member)
                     }}
                   >
                     Remove
@@ -186,106 +157,24 @@ export function MembersPanel({ orgId }: { orgId: string }) {
         </Table>
       )}
 
-      <p className="border-t px-6 py-3 text-xs text-muted-foreground">
-        An organization always keeps at least one owner. The last owner cannot be removed or
-        demoted.
-      </p>
+      <InviteDialog orgId={orgId} open={inviting} onOpenChange={setInviting} />
 
-      <Dialog
-        open={inviting}
+      <ConfirmDialog
+        open={removing !== null}
         onOpenChange={(open) => {
-          if (!open) closeInvite()
+          if (!open) setRemoving(null)
         }}
-      >
-        <DialogContent>
-          {inviteLink ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Invite created</DialogTitle>
-                <DialogDescription>
-                  Send this link to {email}. It works once, expires in seven days, and only works
-                  for that email address. We store only a hash, so this is the last time the link
-                  can be shown.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded-sm border bg-muted px-2.5 py-2 font-mono text-xs">
-                  {inviteLink}
-                </code>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => void onCopyLink()}
-                  aria-label="Copy invite link"
-                >
-                  {copied ? <Check size={16} /> : <Copy size={16} />}
-                </Button>
-              </div>
-              <DialogFooter>
-                <Button onClick={closeInvite}>Done</Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Invite member</DialogTitle>
-                <DialogDescription>
-                  They will get a link that adds them to this organization with the role you choose.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="invite-email">Email</Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    className="mt-1.5"
-                    placeholder="colleague@company.com"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                    }}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="invite-role">Role</Label>
-                  <Select
-                    value={role}
-                    onValueChange={(next) => {
-                      setRole(next as 'admin' | 'member' | 'viewer')
-                    }}
-                  >
-                    <SelectTrigger id="invite-role" className="mt-1.5 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(['admin', 'member', 'viewer'] as const).map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {value} - {ROLE_HELP[value]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    An invite cannot grant ownership. An existing owner transfers that explicitly.
-                  </p>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={closeInvite}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => void onInvite()}
-                  disabled={email.trim().length === 0 || createInvite.isPending}
-                >
-                  {createInvite.isPending ? 'Creating' : 'Create invite'}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </section>
+        title={`Remove ${removing?.email ?? 'this member'}?`}
+        description={
+          removing?.user_id === user?.id
+            ? 'You lose access to this organization and all of its projects straight away. Someone else would have to invite you back.'
+            : 'They lose access to this organization and all of its projects straight away. Their account is not deleted, and you can invite them again.'
+        }
+        confirmLabel="Remove member"
+        pendingLabel="Removing member"
+        pending={removeMember.isPending}
+        onConfirm={() => void onRemove()}
+      />
+    </DataCard>
   )
 }

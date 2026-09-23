@@ -1,25 +1,25 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { CircleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate } from 'react-router'
 import { z } from 'zod'
-import { errorMessage } from '@/lib/errors'
+import { TimezonePicker } from '@/components/data/timezone-picker'
+import { AuthLayout } from '@/components/layout/auth-layout'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
+import { useAuth } from '@/features/auth/use-auth'
 import { useCreateOrganization, useOrganizations } from '@/features/orgs/api'
 import { useCreateProject } from '@/features/projects/api'
-import { browserTimeZone, supportedTimeZones } from '@/lib/tz'
+import { errorMessage } from '@/lib/errors'
+import { browserTimeZone } from '@/lib/tz'
 
 const schema = z.object({
-  orgName: z.string().trim().min(1, 'Give your organization a name').max(80),
+  orgName: z.string().trim().max(80),
   projectName: z.string().trim().min(1, 'Give your project a name').max(80),
   timezone: z.string().min(1),
 })
@@ -35,143 +35,136 @@ function slugify(input: string): string {
 }
 
 /**
- * First run. Creates an organization and its first project in one screen.
- *
- * Two forms would be more "correct" and worse: nobody has an opinion about an organization
- * separate from the thing they came here to measure. Asking once and explaining the
- * distinction inline gets people to data faster.
+ * First run: an organization and its first project on one screen. Nobody has an opinion about
+ * an organization separate from the thing they came to measure, so it is asked once, inline.
  */
 export function OnboardingRoute() {
   const navigate = useNavigate()
+  const { user, signOut } = useAuth()
   const organizations = useOrganizations()
   const createOrganization = useCreateOrganization()
   const createProject = useCreateProject()
   const [failure, setFailure] = useState<string | null>(null)
 
   const existingOrg = organizations.data?.[0]
-
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      orgName: '',
-      projectName: '',
-      timezone: browserTimeZone(),
-    },
+    defaultValues: { orgName: '', projectName: '', timezone: browserTimeZone() },
   })
+  // useWatch rather than form.watch(): watch() returns a fresh function each render, which the
+  // React Compiler cannot memoize.
+  const timezone = useWatch({ control: form.control, name: 'timezone' })
+  const { errors, isSubmitting } = form.formState
 
   const onSubmit = form.handleSubmit(async (values) => {
     setFailure(null)
+    if (!existingOrg && values.orgName.length === 0) {
+      form.setError('orgName', { message: 'Give your organization a name' })
+      return
+    }
     try {
       const orgId =
         existingOrg?.id ?? (await createOrganization.mutateAsync({ name: values.orgName }))
-
       const project = await createProject.mutateAsync({
         orgId,
         name: values.projectName,
         slug: slugify(values.projectName) || 'web',
         timezone: values.timezone,
       })
-
       await navigate(`/p/${project.id}/settings?tab=install`, { replace: true })
     } catch (error) {
       setFailure(errorMessage(error))
     }
   })
 
-  const timeZones = supportedTimeZones()
-  // useWatch rather than form.watch(): watch() returns a fresh function each render,
-  // which the React Compiler cannot memoize and therefore skips the whole component.
-  const selectedTimeZone = useWatch({ control: form.control, name: 'timezone' })
-
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <div className="w-full max-w-md">
-        <h1 className="text-lg font-medium">
-          {existingOrg ? 'Create a project' : 'Set up your workspace'}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {existingOrg
-            ? 'A project is one app or site. Events and API keys belong to a project.'
-            : 'An organization holds your team and billing. A project is one app or site.'}
-        </p>
+    <AuthLayout
+      title={existingOrg ? 'Create a project' : 'Set up your workspace'}
+      description={
+        existingOrg
+          ? 'A project is one app or site. Its events and API keys belong to it.'
+          : 'An organization holds your team. A project is one app or site inside it.'
+      }
+    >
+      <Card>
+        <CardContent>
+          <form
+            onSubmit={(event) => {
+              void onSubmit(event)
+            }}
+            noValidate
+          >
+            <FieldGroup>
+              {existingOrg ? null : (
+                <Field data-invalid={errors.orgName ? true : undefined}>
+                  <FieldLabel htmlFor="orgName">Organization name</FieldLabel>
+                  <Input
+                    id="orgName"
+                    placeholder="Acme"
+                    autoComplete="organization"
+                    aria-invalid={errors.orgName ? true : undefined}
+                    {...form.register('orgName')}
+                  />
+                  {errors.orgName ? <FieldError>{errors.orgName.message}</FieldError> : null}
+                </Field>
+              )}
 
-        <form
-          onSubmit={(event) => {
-            void onSubmit(event)
-          }}
-          className="mt-6 space-y-4 rounded-md border bg-card p-5"
-          noValidate
-        >
-          {existingOrg ? null : (
-            <div>
-              <Label htmlFor="orgName">Organization name</Label>
-              <Input
-                id="orgName"
-                className="mt-1.5"
-                placeholder="Acme"
-                aria-invalid={Boolean(form.formState.errors.orgName)}
-                {...form.register('orgName')}
-              />
-              {form.formState.errors.orgName ? (
-                <p className="mt-1.5 text-xs text-destructive">
-                  {form.formState.errors.orgName.message}
-                </p>
+              <Field data-invalid={errors.projectName ? true : undefined}>
+                <FieldLabel htmlFor="projectName">Project name</FieldLabel>
+                <Input
+                  id="projectName"
+                  placeholder="Web app"
+                  aria-invalid={errors.projectName ? true : undefined}
+                  {...form.register('projectName')}
+                />
+                {errors.projectName ? <FieldError>{errors.projectName.message}</FieldError> : null}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="timezone">Reporting timezone</FieldLabel>
+                <TimezonePicker
+                  id="timezone"
+                  value={timezone}
+                  onChange={(value) => {
+                    form.setValue('timezone', value)
+                  }}
+                  aria-describedby="timezone-help"
+                />
+                <FieldDescription id="timezone-help">
+                  Days and weeks are cut in this timezone. You can change it later, and history is
+                  recalculated rather than rewritten.
+                </FieldDescription>
+              </Field>
+
+              {failure ? (
+                <Alert variant="destructive">
+                  <CircleAlert />
+                  <AlertTitle>The project was not created</AlertTitle>
+                  <AlertDescription>{failure}</AlertDescription>
+                </Alert>
               ) : null}
-            </div>
-          )}
 
-          <div>
-            <Label htmlFor="projectName">Project name</Label>
-            <Input
-              id="projectName"
-              className="mt-1.5"
-              placeholder="Web app"
-              aria-invalid={Boolean(form.formState.errors.projectName)}
-              {...form.register('projectName')}
-            />
-            {form.formState.errors.projectName ? (
-              <p className="mt-1.5 text-xs text-destructive">
-                {form.formState.errors.projectName.message}
-              </p>
-            ) : null}
-          </div>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? <Spinner data-icon="inline-start" /> : null}
+                {isSubmitting ? 'Creating project' : 'Create project'}
+              </Button>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
 
-          <div>
-            <Label htmlFor="timezone">Reporting timezone</Label>
-            <Select
-              value={selectedTimeZone}
-              onValueChange={(value) => {
-                form.setValue('timezone', value)
-              }}
-            >
-              <SelectTrigger id="timezone" className="mt-1.5 w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {timeZones.map((zone) => (
-                  <SelectItem key={zone} value={zone}>
-                    {zone}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Days and weeks are cut in this timezone. You can change it later, and history is
-              recalculated rather than rewritten.
-            </p>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-            {form.formState.isSubmitting ? 'Creating' : 'Create project'}
-          </Button>
-
-          {failure ? (
-            <p className="text-xs text-destructive" role="alert">
-              {failure}
-            </p>
-          ) : null}
-        </form>
-      </div>
-    </main>
+      <p className="text-center text-sm text-muted-foreground">
+        Signed in as <span className="wrap-anywhere text-foreground">{user?.email}</span>.{' '}
+        <Button
+          variant="link"
+          className="h-auto p-0"
+          onClick={() => {
+            void signOut().then(() => navigate('/sign-in', { replace: true }))
+          }}
+        >
+          Sign out
+        </Button>
+      </p>
+    </AuthLayout>
   )
 }

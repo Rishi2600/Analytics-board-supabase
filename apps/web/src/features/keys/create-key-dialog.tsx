@@ -1,6 +1,7 @@
-import { Check, Copy } from 'lucide-react'
+import { Check, CircleAlert, Copy } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -10,15 +11,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Spinner } from '@/components/ui/spinner'
 import { errorMessage } from '@/lib/errors'
 import { useCreateApiKey, type CreatedApiKey } from './api'
 
@@ -29,23 +32,23 @@ interface Props {
 }
 
 /**
- * Two states in one dialog: the form, then the key.
- *
- * The reveal is not a toast and not a row in the table, because the user has exactly one
- * chance to copy it and both of those can be dismissed by accident. They have to close
- * this deliberately.
+ * Two states in one dialog: the form, then the key. The reveal is not a toast or a table row,
+ * because the user has exactly one chance to copy it and both of those are easy to dismiss.
  */
 export function CreateKeyDialog({ projectId, open, onOpenChange }: Props) {
   const [name, setName] = useState('')
   const [keyType, setKeyType] = useState<'public' | 'secret'>('public')
+  const [nameMissing, setNameMissing] = useState(false)
   const [created, setCreated] = useState<CreatedApiKey | null>(null)
   const [copied, setCopied] = useState(false)
   const [failure, setFailure] = useState<string | null>(null)
   const createKey = useCreateApiKey(projectId)
 
-  const reset = () => {
+  const close = () => {
+    onOpenChange(false)
     setName('')
     setKeyType('public')
+    setNameMissing(false)
     setCreated(null)
     setCopied(false)
     setFailure(null)
@@ -53,9 +56,12 @@ export function CreateKeyDialog({ projectId, open, onOpenChange }: Props) {
 
   const onSubmit = async () => {
     setFailure(null)
+    if (name.trim().length === 0) {
+      setNameMissing(true)
+      return
+    }
     try {
-      const result = await createKey.mutateAsync({ name: name.trim(), keyType })
-      setCreated(result)
+      setCreated(await createKey.mutateAsync({ name: name.trim(), keyType }))
       toast.success('Key created')
     } catch (error) {
       setFailure(errorMessage(error))
@@ -69,18 +75,12 @@ export function CreateKeyDialog({ projectId, open, onOpenChange }: Props) {
       setCopied(true)
       toast.success('Key copied')
     } catch {
-      setFailure('Could not reach the clipboard. Select the key and copy it manually.')
+      setFailure('The clipboard is not available here. Select the key and copy it by hand.')
     }
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) reset()
-        onOpenChange(next)
-      }}
-    >
+    <Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
       <DialogContent>
         {created ? (
           <>
@@ -91,9 +91,8 @@ export function CreateKeyDialog({ projectId, open, onOpenChange }: Props) {
                 lose it, revoke this key and create another.
               </DialogDescription>
             </DialogHeader>
-
-            <div className="flex items-center gap-2">
-              <code className="flex-1 truncate rounded-sm border bg-muted px-2.5 py-2 font-mono text-xs">
+            <div className="flex items-start gap-2">
+              <code className="min-w-0 flex-1 rounded-md border bg-muted px-2.5 py-2 font-mono text-xs wrap-anywhere">
                 {created.api_key}
               </code>
               <Button
@@ -102,96 +101,90 @@ export function CreateKeyDialog({ projectId, open, onOpenChange }: Props) {
                 onClick={() => void onCopy()}
                 aria-label="Copy key"
               >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
+                {copied ? <Check /> : <Copy />}
               </Button>
             </div>
-
-            {failure ? (
-              <p className="text-xs text-destructive" role="alert">
-                {failure}
-              </p>
-            ) : null}
-
+            {failure ? <p className="text-sm text-destructive">{failure}</p> : null}
             <DialogFooter>
-              <Button
-                onClick={() => {
-                  reset()
-                  onOpenChange(false)
-                }}
-              >
-                Done
-              </Button>
+              <Button onClick={close}>Done</Button>
             </DialogFooter>
           </>
         ) : (
-          <>
+          <form
+            className="flex flex-col gap-6"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void onSubmit()
+            }}
+          >
             <DialogHeader>
               <DialogTitle>Create key</DialogTitle>
               <DialogDescription>
                 Public keys go in browser code and can only write events. Secret keys are for your
-                servers and are rejected if a browser sends them.
+                servers and are refused if a browser sends them.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="key-name">Name</Label>
+            <FieldGroup>
+              <Field data-invalid={nameMissing || undefined}>
+                <FieldLabel htmlFor="key-name">Name</FieldLabel>
                 <Input
                   id="key-name"
-                  className="mt-1.5"
                   placeholder="Web (production)"
+                  aria-invalid={nameMissing || undefined}
                   value={name}
                   onChange={(event) => {
                     setName(event.target.value)
+                    setNameMissing(false)
                   }}
                 />
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Used to tell keys apart when you need to revoke one.
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="key-type">Type</Label>
+                {nameMissing ? (
+                  <FieldError>Give the key a name, so you can tell keys apart later</FieldError>
+                ) : (
+                  <FieldDescription>
+                    Used to tell keys apart when you need to revoke one.
+                  </FieldDescription>
+                )}
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="key-type">Type</FieldLabel>
                 <Select
                   value={keyType}
                   onValueChange={(value) => {
                     setKeyType(value === 'secret' ? 'secret' : 'public')
                   }}
                 >
-                  <SelectTrigger id="key-type" className="mt-1.5 w-full">
+                  <SelectTrigger id="key-type" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="public">Public, for browsers</SelectItem>
-                    <SelectItem value="secret">Secret, for servers</SelectItem>
+                    <SelectGroup>
+                      <SelectItem value="public">Public, for browsers</SelectItem>
+                      <SelectItem value="secret">Secret, for servers</SelectItem>
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
-              </div>
+              </Field>
+            </FieldGroup>
 
-              {failure ? (
-                <p className="text-xs text-destructive" role="alert">
-                  {failure}
-                </p>
-              ) : null}
-            </div>
+            {failure ? (
+              <Alert variant="destructive">
+                <CircleAlert />
+                <AlertTitle>The key was not created</AlertTitle>
+                <AlertDescription>{failure}</AlertDescription>
+              </Alert>
+            ) : null}
 
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  onOpenChange(false)
-                }}
-              >
+              <Button type="button" variant="outline" onClick={close}>
                 Cancel
               </Button>
-              <Button
-                onClick={() => void onSubmit()}
-                disabled={name.trim().length === 0 || createKey.isPending}
-              >
-                {createKey.isPending ? 'Creating' : 'Create key'}
+              <Button type="submit" disabled={createKey.isPending}>
+                {createKey.isPending ? <Spinner data-icon="inline-start" /> : null}
+                {createKey.isPending ? 'Creating key' : 'Create key'}
               </Button>
             </DialogFooter>
-          </>
+          </form>
         )}
       </DialogContent>
     </Dialog>

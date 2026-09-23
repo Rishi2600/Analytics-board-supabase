@@ -1,12 +1,13 @@
-import { Calendar } from 'lucide-react'
+import { CalendarRange } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { RANGE_PRESETS } from '@/features/analytics/date-range'
+import { presetById, RANGE_PRESETS } from '@/features/analytics/date-range'
 
 interface Props {
   value: string
@@ -14,27 +15,22 @@ interface Props {
 }
 
 export function DateRangePicker({ value, onChange }: Props) {
-  const active = RANGE_PRESETS.find((p) => p.id === value) ?? RANGE_PRESETS[1]
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 font-normal">
-          <Calendar size={16} />
-          {active?.label}
+        <Button variant="outline" aria-label={`Date range: ${presetById(value).label}`}>
+          <CalendarRange data-icon="inline-start" />
+          {presetById(value).label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {RANGE_PRESETS.map((preset) => (
-          <DropdownMenuItem
-            key={preset.id}
-            onSelect={() => {
-              onChange(preset.id)
-            }}
-          >
-            {preset.label}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="end" className="w-44">
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          {RANGE_PRESETS.map((preset) => (
+            <DropdownMenuRadioItem key={preset.id} value={preset.id}>
+              {preset.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

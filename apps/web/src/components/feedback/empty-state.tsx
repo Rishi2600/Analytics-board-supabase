@@ -1,4 +1,13 @@
+import type { LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { cn } from '@/lib/utils'
 
 interface EmptyStateProps {
@@ -6,29 +15,29 @@ interface EmptyStateProps {
   title: string
   /** What will appear here, and what makes it appear. */
   description: string
-  /** One action. Two actions in an empty state means we do not know what the user should do. */
+  icon?: LucideIcon
+  /** One action. Two means we do not know what the user should do next. */
   action?: ReactNode
   className?: string
 }
 
 /**
- * The empty state every data surface ships alongside its happy path.
- *
- * An empty chart with no explanation is indistinguishable from a broken one, and a new
- * user cannot tell whether they installed the snippet wrong or simply have no traffic yet.
- * Saying which, and giving them the next step, is the whole job.
+ * An empty chart with no explanation looks exactly like a broken one. This says which it
+ * is, and what to do next.
  */
-export function EmptyState({ title, description, action, className }: EmptyStateProps) {
+export function EmptyState({ title, description, icon: Icon, action, className }: EmptyStateProps) {
   return (
-    <div
-      className={cn(
-        'flex h-full min-h-40 flex-col items-center justify-center gap-2 px-6 py-10 text-center',
-        className,
-      )}
-    >
-      <p className="text-sm font-medium">{title}</p>
-      <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
-      {action ? <div className="mt-2">{action}</div> : null}
-    </div>
+    <Empty className={cn('min-h-40 py-8', className)}>
+      <EmptyHeader>
+        {Icon ? (
+          <EmptyMedia variant="icon">
+            <Icon />
+          </EmptyMedia>
+        ) : null}
+        <EmptyTitle>{title}</EmptyTitle>
+        <EmptyDescription>{description}</EmptyDescription>
+      </EmptyHeader>
+      {action ? <EmptyContent>{action}</EmptyContent> : null}
+    </Empty>
   )
 }

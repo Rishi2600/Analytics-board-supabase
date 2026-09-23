@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { AuthLayout } from '@/components/layout/auth-layout'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { errorMessage } from '@/lib/errors'
 import { useAcceptInvite } from '@/features/orgs/api'
 
@@ -31,29 +33,29 @@ export function AcceptInviteRoute() {
       })
   }, [token, acceptInvite, navigate])
 
+  if (failure) {
+    return (
+      <AuthLayout
+        title="This invite is not valid"
+        description="It may have expired, been used already, or been sent to a different email address than the one you signed in with. Ask whoever invited you to send a new one."
+      >
+        <Button
+          onClick={() => {
+            void navigate('/', { replace: true })
+          }}
+        >
+          Go to your dashboard
+        </Button>
+      </AuthLayout>
+    )
+  }
+
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <div className="w-full max-w-sm text-center">
-        {failure ? (
-          <>
-            <p className="text-sm font-medium">This invite is not valid</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              It may have expired, been used already, or been sent to a different email address than
-              the one you signed in with. Ask whoever invited you to send a new one.
-            </p>
-            <Button
-              className="mt-4"
-              onClick={() => {
-                void navigate('/', { replace: true })
-              }}
-            >
-              Continue
-            </Button>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">Accepting your invite</p>
-        )}
-      </div>
-    </main>
+    <AuthLayout title="Accepting your invite">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <Spinner />
+        Adding you to the organization
+      </p>
+    </AuthLayout>
   )
 }

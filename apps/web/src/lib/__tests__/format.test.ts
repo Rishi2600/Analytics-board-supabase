@@ -49,7 +49,7 @@ describe('computeDelta', () => {
   it('reports period over period growth', () => {
     const delta = computeDelta(112, 100)
     expect(delta.direction).toBe('up')
-    expect(delta.label).toBe('+12%')
+    expect(delta.label).toBe('+12.0%')
   })
 
   it('reports a decline', () => {
@@ -84,6 +84,14 @@ describe('formatDuration', () => {
 
   it('uses minutes and seconds above a minute', () => {
     expect(formatDuration(125000)).toBe('2m 5s')
+  })
+
+  it('uses hours and minutes above an hour, rather than hundreds of minutes', () => {
+    expect(formatDuration(4 * 3_600_000 + 10 * 60_000)).toBe('4h 10m')
+  })
+
+  it('uses days and hours above a day', () => {
+    expect(formatDuration(3 * 86_400_000 + 2 * 3_600_000)).toBe('3d 2h')
   })
 })
 

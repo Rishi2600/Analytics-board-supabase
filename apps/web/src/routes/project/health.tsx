@@ -1,24 +1,29 @@
+import { Activity } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 import { TimeSeriesChart } from '@/components/charts/time-series-chart'
+import { DataCard } from '@/components/data/data-card'
 import { DateRangePicker } from '@/components/data/date-range-picker'
+import { MetricStrip, type Metric } from '@/components/data/metric-strip'
+import { StatusBadge } from '@/components/data/status-badge'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
-import { ChartSkeleton, TableSkeleton } from '@/components/feedback/skeletons'
+import { ChartSkeleton } from '@/components/feedback/skeletons'
 import { PageHeader } from '@/components/layout/page-header'
-import { useIngestionHealth, useRejectionReasons, useRollupStatus } from '@/features/analytics/api'
-import { useApiKeys } from '@/features/keys/api'
+import { Provenance } from '@/components/layout/provenance'
+import { useIngestionHealth, useRollupStatus } from '@/features/analytics/api'
 import { DEFAULT_PRESET, presetById } from '@/features/analytics/date-range'
+import { RejectionReasonsCard } from '@/features/analytics/rejection-reasons-card'
+import { KeysSendingCard } from '@/features/keys/keys-sending-card'
 import { useProject } from '@/features/projects/api'
 import { formatDuration, formatInteger, formatRelative } from '@/lib/format'
-import { timeZoneLabel } from '@/lib/tz'
+
+/** Rollups run every five minutes. Past three missed runs, the numbers are stale. */
+const STALE_AFTER_SECONDS = 15 * 60
 
 /**
- * The screen that makes the other screens believable.
- *
- * Every other page shows numbers. This one shows whether those numbers can be trusted
- * right now: what was refused and why, how far behind aggregation is, and when the job
- * last succeeded.
+ * The screen that makes the other screens believable: what was refused and why, how far
+ * behind aggregation is, and when the job last succeeded.
  */
 export function HealthRoute() {
   const { projectId = '' } = useParams<{ projectId: string }>()
@@ -27,193 +32,111 @@ export function HealthRoute() {
 
   const project = useProject(projectId)
   const health = useIngestionHealth(projectId, range)
-  const reasons = useRejectionReasons(projectId, range)
   const rollup = useRollupStatus(projectId)
-  const keys = useApiKeys(projectId)
-
   const timeZone = project.data?.timezone ?? 'Etc/UTC'
 
   const chart = useMemo(
     () => ({
-      data: (health.data ?? []).map((point) => ({
-        bucket: point.bucket,
-        Accepted: point.accepted,
-        Rejected: point.rejected,
+      data: (health.data ?? []).map((p) => ({
+        bucket: p.bucket,
+        Accepted: p.accepted,
+        Refused: p.rejected,
       })),
-      series: ['Accepted', 'Rejected'],
+      series: ['Accepted', 'Refused'],
     }),
     [health.data],
   )
+  const accepted = (health.data ?? []).reduce((sum, p) => sum + p.accepted, 0)
+  const refused = (health.data ?? []).reduce((sum, p) => sum + p.rejected, 0)
+  const lag = rollup.data?.lag_seconds ?? null
 
-  const totals = useMemo(() => {
-    const accepted = (health.data ?? []).reduce((sum, p) => sum + p.accepted, 0)
-    const rejected = (health.data ?? []).reduce((sum, p) => sum + p.rejected, 0)
-    return { accepted, rejected }
-  }, [health.data])
-
-  const lagSeconds = rollup.data?.lag_seconds ?? null
-  const lagHealthy = lagSeconds !== null && lagSeconds < 15 * 60
+  const metrics: Metric[] = [
+    { label: 'Accepted', value: health.isSuccess ? formatInteger(accepted) : '-' },
+    {
+      label: 'Refused',
+      value: health.isSuccess ? formatInteger(refused) : '-',
+      detail:
+        health.isSuccess && refused > 0 ? (
+          <StatusBadge tone="warn">Some refused</StatusBadge>
+        ) : health.isSuccess ? (
+          <StatusBadge tone="ok">None refused</StatusBadge>
+        ) : null,
+    },
+    {
+      label: 'Aggregation lag',
+      value: lag === null ? 'Unknown' : formatDuration(lag * 1000),
+      detail:
+        lag === null ? (
+          <StatusBadge tone="neutral">Not run yet</StatusBadge>
+        ) : lag > STALE_AFTER_SECONDS ? (
+          <>
+            <StatusBadge tone="warn">Behind</StatusBadge>
+            <span>Numbers may be stale</span>
+          </>
+        ) : (
+          <StatusBadge tone="ok">Current</StatusBadge>
+        ),
+    },
+    {
+      label: 'Last rollup',
+      value: rollup.data?.last_run_at ? formatRelative(rollup.data.last_run_at) : 'Never',
+      detail:
+        rollup.data?.last_status === 'failed' ? (
+          <>
+            <StatusBadge tone="danger">Failed</StatusBadge>
+            <span className="wrap-anywhere">{rollup.data.last_error ?? 'No reason recorded'}</span>
+          </>
+        ) : rollup.data?.last_status ? (
+          <StatusBadge tone="ok">Succeeded</StatusBadge>
+        ) : null,
+    },
+  ]
 
   return (
     <>
       <PageHeader
         title="Ingestion health"
-        meta={timeZoneLabel(timeZone)}
         actions={<DateRangePicker value={preset} onChange={setPreset} />}
-      />
+      >
+        <Provenance projectId={projectId} timeZone={timeZone} range={range} showFreshness={false} />
+      </PageHeader>
 
-      <div className="space-y-6 p-6">
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatusCard label="Accepted" value={formatInteger(totals.accepted)} />
-          <StatusCard
-            label="Rejected"
-            value={formatInteger(totals.rejected)}
-            tone={totals.rejected > 0 ? 'warn' : undefined}
-          />
-          <StatusCard
-            label="Aggregation lag"
-            value={lagSeconds === null ? 'Unknown' : formatDuration(lagSeconds * 1000)}
-            tone={lagSeconds === null ? undefined : lagHealthy ? 'ok' : 'warn'}
-            hint={lagHealthy ? 'Rollups are current' : 'Rollups are behind; numbers may be stale'}
-          />
-          <StatusCard
-            label="Last rollup"
-            value={rollup.data?.last_run_at ? formatRelative(rollup.data.last_run_at) : 'Never'}
-            tone={rollup.data?.last_status === 'failed' ? 'danger' : undefined}
-            hint={rollup.data?.last_error ?? undefined}
-          />
-        </section>
+      <div className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
+        <MetricStrip metrics={metrics} />
 
-        <section className="rounded-md border bg-card">
-          <div className="border-b px-4 py-2.5">
-            <h2 className="text-sm font-medium">Accepted and rejected over time</h2>
-          </div>
+        <DataCard title="Accepted and refused over time">
           {health.isPending ? (
-            <ChartSkeleton height={220} />
+            <ChartSkeleton />
           ) : health.isError ? (
             <ErrorState
               title="The health chart did not load"
+              description="This is a read that failed; ingestion itself is unaffected. Try again."
               error={health.error}
               onRetry={() => void health.refetch()}
             />
           ) : chart.data.length === 0 ? (
             <EmptyState
-              title="No ingestion activity"
-              description="Nothing has been sent to this project in this range."
+              icon={Activity}
+              title="Nothing was sent in this range"
+              description="Once your app sends events, accepted and refused counts appear here hour by hour."
             />
           ) : (
-            <div className="p-2">
+            <div className="p-2 pt-4">
               <TimeSeriesChart
                 data={chart.data}
                 series={chart.series}
                 timeZone={timeZone}
                 resolution="hour"
-                height={220}
+                label="Accepted and refused events per hour"
               />
             </div>
           )}
-        </section>
+        </DataCard>
 
-        <section className="rounded-md border bg-card">
-          <div className="border-b px-4 py-2.5">
-            <h2 className="text-sm font-medium">Why events were rejected</h2>
-          </div>
-          {reasons.isPending ? (
-            <TableSkeleton rows={3} columns={3} />
-          ) : reasons.isError ? (
-            <ErrorState
-              title="Rejection reasons did not load"
-              error={reasons.error}
-              onRetry={() => void reasons.refetch()}
-            />
-          ) : reasons.data.length === 0 ? (
-            <EmptyState
-              title="Nothing was rejected"
-              description="Every event sent in this range was accepted. This is the state you want."
-            />
-          ) : (
-            <ul className="divide-y divide-border">
-              {reasons.data.map((reason) => (
-                <li key={reason.reason} className="px-4 py-3">
-                  <div className="flex items-baseline gap-3">
-                    <span className="flex-1 text-sm font-medium">{reason.reason}</span>
-                    <span className="value text-sm">{formatInteger(reason.total)}</span>
-                    <span className="w-24 text-right text-xs text-muted-foreground">
-                      {formatRelative(reason.last_seen)}
-                    </span>
-                  </div>
-                  {reason.sample ? (
-                    <pre className="mt-2 max-h-32 overflow-auto rounded-sm border bg-muted p-2 font-mono text-xs text-muted-foreground">
-                      {JSON.stringify(reason.sample, null, 2)}
-                    </pre>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <RejectionReasonsCard projectId={projectId} range={range} />
 
-        <section className="rounded-md border bg-card">
-          <div className="border-b px-4 py-2.5">
-            <h2 className="text-sm font-medium">Keys sending events</h2>
-          </div>
-          {keys.isPending ? (
-            <TableSkeleton rows={3} columns={3} />
-          ) : keys.isError ? (
-            <ErrorState
-              title="The key list did not load"
-              error={keys.error}
-              onRetry={() => void keys.refetch()}
-            />
-          ) : keys.data.length === 0 ? (
-            <EmptyState
-              title="No keys yet"
-              description="Create an API key in settings so your app can send events."
-            />
-          ) : (
-            <ul className="divide-y divide-border">
-              {keys.data.map((key) => (
-                <li key={key.id} className="flex items-center gap-3 px-4 py-2.5">
-                  <span className="flex-1 text-sm">{key.name}</span>
-                  <span className="value text-xs text-muted-foreground">{key.key_prefix}</span>
-                  <span className="w-28 text-right text-xs text-muted-foreground">
-                    {key.revoked_at ? 'Revoked' : formatRelative(key.last_used_at)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <KeysSendingCard projectId={projectId} />
       </div>
     </>
-  )
-}
-
-function StatusCard({
-  label,
-  value,
-  tone,
-  hint,
-}: {
-  label: string
-  value: string
-  tone?: 'ok' | 'warn' | 'danger'
-  hint?: string
-}) {
-  const toneClass =
-    tone === 'ok'
-      ? 'text-ok'
-      : tone === 'warn'
-        ? 'text-warn'
-        : tone === 'danger'
-          ? 'text-destructive'
-          : ''
-
-  return (
-    <div className="rounded-md border bg-card p-4">
-      <p className={`value text-2xl leading-none font-medium ${toneClass}`}>{value}</p>
-      <p className="mt-2 text-xs text-muted-foreground">{label}</p>
-      {hint ? <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p> : null}
-    </div>
   )
 }

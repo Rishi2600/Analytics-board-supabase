@@ -17,8 +17,10 @@ const decimalFormat = new Intl.NumberFormat(locale, {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
+// Always one decimal, so a column of percentages lines up: "17.0%" beside "17.1%", not "17%".
 const percentFormat = new Intl.NumberFormat(locale, {
   style: 'percent',
+  minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
 
@@ -80,14 +82,24 @@ export function computeDelta(current: number, previous: number): Delta {
   }
 }
 
-/** Milliseconds to a short human duration: "1.2s", "340ms", "2m 5s". */
+/** Milliseconds to a short human duration: "340ms", "1.2s", "2m 5s", "4h 10m", "3d 2h". */
 export function formatDuration(ms: number | null | undefined): string {
   if (ms == null || !Number.isFinite(ms)) return '-'
   if (ms < 1000) return `${Math.round(ms)}ms`
   if (ms < 60_000) return `${decimalFormat.format(ms / 1000)}s`
-  const minutes = Math.floor(ms / 60_000)
-  const seconds = Math.round((ms % 60_000) / 1000)
-  return `${integerFormat.format(minutes)}m ${seconds}s`
+  if (ms < 3_600_000) {
+    const minutes = Math.floor(ms / 60_000)
+    const seconds = Math.round((ms % 60_000) / 1000)
+    return `${minutes}m ${seconds}s`
+  }
+  if (ms < 86_400_000) {
+    const hours = Math.floor(ms / 3_600_000)
+    const minutes = Math.round((ms % 3_600_000) / 60_000)
+    return `${hours}h ${minutes}m`
+  }
+  const days = Math.floor(ms / 86_400_000)
+  const hours = Math.round((ms % 86_400_000) / 3_600_000)
+  return `${integerFormat.format(days)}d ${hours}h`
 }
 
 /** "2 min ago", "4 days ago". Used for last-seen style columns. */

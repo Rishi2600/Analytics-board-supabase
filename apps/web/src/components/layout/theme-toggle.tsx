@@ -1,12 +1,22 @@
-import { Monitor, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useTheme } from '@/app/use-theme'
+import type { Theme } from '@/app/theme-context'
+
+const OPTIONS: { value: Theme; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Match system' },
+]
 
 export function ThemeToggle() {
   const { theme, resolvedTheme, setTheme } = useTheme()
@@ -14,32 +24,26 @@ export function ThemeToggle() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label={`Theme: ${theme}`}>
-          {resolvedTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+        <Button variant="ghost" size="icon" aria-label="Theme">
+          {resolvedTheme === 'dark' ? <Moon /> : <Sun />}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          onSelect={() => {
-            setTheme('light')
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => {
+            setTheme(value as Theme)
           }}
         >
-          <Sun size={16} /> Light
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setTheme('dark')
-          }}
-        >
-          <Moon size={16} /> Dark
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setTheme('system')
-          }}
-        >
-          <Monitor size={16} /> System
-        </DropdownMenuItem>
+          {OPTIONS.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

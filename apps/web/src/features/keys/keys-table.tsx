@@ -1,18 +1,14 @@
+import { KeyRound } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/data/confirm-dialog'
+import { DataCard } from '@/components/data/data-card'
+import { StatusBadge } from '@/components/data/status-badge'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
 import { TableSkeleton } from '@/components/feedback/skeletons'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -30,73 +26,72 @@ export function KeysTable({ projectId }: { projectId: string }) {
   const keys = useApiKeys(projectId)
   const revoke = useRevokeApiKey(projectId)
   const [creating, setCreating] = useState(false)
-  const [confirming, setConfirming] = useState<ApiKey | null>(null)
+  const [revoking, setRevoking] = useState<ApiKey | null>(null)
 
   const onRevoke = async () => {
-    if (!confirming) return
+    if (!revoking) return
     try {
-      await revoke.mutateAsync(confirming.id)
+      await revoke.mutateAsync(revoking.id)
       toast.success('Key revoked')
-      setConfirming(null)
+      setRevoking(null)
     } catch (error) {
       toast.error(errorMessage(error))
     }
   }
 
-  return (
-    <section>
-      <div className="flex items-center justify-between border-b px-6 py-3">
-        <h2 className="text-sm font-medium">API keys</h2>
-        <Button
-          size="sm"
-          onClick={() => {
-            setCreating(true)
-          }}
-        >
-          Create key
-        </Button>
-      </div>
+  const createButton = (
+    <Button
+      onClick={() => {
+        setCreating(true)
+      }}
+    >
+      Create key
+    </Button>
+  )
 
+  return (
+    <DataCard
+      title="API keys"
+      description="Keys let your app send events. Use a public key in browser code and a secret key on your servers."
+      action={createButton}
+      footer="A key is shown once, when you create it. We store only a hash, so we cannot show it again. Revoking keeps the record and stops the key working."
+    >
       {keys.isPending ? (
         <TableSkeleton rows={3} columns={4} />
       ) : keys.isError ? (
         <ErrorState
-          title="We could not load your keys"
-          description="The key list failed to load. Your existing keys are unaffected and still work."
+          title="Your keys did not load"
+          description="The list failed to load. Your keys are unaffected and still work. Try again."
           error={keys.error}
           onRetry={() => void keys.refetch()}
         />
       ) : keys.data.length === 0 ? (
         <EmptyState
+          icon={KeyRound}
           title="No API keys yet"
-          description="A key lets your app send events to us. Create a public key for browser code, or a secret key for your servers."
-          action={
-            <Button
-              size="sm"
-              onClick={() => {
-                setCreating(true)
-              }}
-            >
-              Create key
-            </Button>
-          }
+          description="Create a key so your app can send events to this project."
+          action={createButton}
         />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Name</TableHead>
+              <TableHead className="pl-4">Name</TableHead>
               <TableHead>Prefix</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Last used</TableHead>
-              <TableHead className="w-24" />
+              <TableHead className="pr-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {keys.data.map((key) => (
-              <TableRow key={key.id} className="group">
-                <TableCell className="font-medium">{key.name}</TableCell>
-                <TableCell className="value border-l text-xs text-muted-foreground">
+              <TableRow key={key.id} className="group/row">
+                <TableCell className="pl-4 font-medium wrap-anywhere whitespace-normal">
+                  {key.name}
+                </TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">
                   {key.key_prefix}
                 </TableCell>
                 <TableCell>
@@ -104,19 +99,24 @@ export function KeysTable({ projectId }: { projectId: string }) {
                     {key.key_type === 'secret' ? 'Secret' : 'Public'}
                   </Badge>
                 </TableCell>
-                <TableCell className="border-l text-xs text-muted-foreground">
-                  {key.revoked_at ? 'Revoked' : formatRelative(key.last_used_at)}
+                <TableCell className="text-muted-foreground">
+                  {key.revoked_at ? (
+                    <StatusBadge tone="neutral">Revoked</StatusBadge>
+                  ) : key.last_used_at ? (
+                    formatRelative(key.last_used_at)
+                  ) : (
+                    'Never'
+                  )}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="pr-4 text-right">
                   {key.revoked_at ? null : (
                     <Button
                       variant="ghost"
                       size="sm"
-                      // Revealed on hover and on keyboard focus. A control that only
-                      // appears on hover is unreachable by keyboard, which is a bug.
-                      className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      className="row-actions"
+                      aria-label={`Revoke ${key.name}`}
                       onClick={() => {
-                        setConfirming(key)
+                        setRevoking(key)
                       }}
                     >
                       Revoke
@@ -129,46 +129,20 @@ export function KeysTable({ projectId }: { projectId: string }) {
         </Table>
       )}
 
-      <p className="border-t px-6 py-3 text-xs text-muted-foreground">
-        A key is shown once, when you create it. We store only a hash, so we cannot show it again.
-        Revoking keeps the record and stops the key working.
-      </p>
-
       <CreateKeyDialog projectId={projectId} open={creating} onOpenChange={setCreating} />
 
-      <Dialog
-        open={confirming !== null}
+      <ConfirmDialog
+        open={revoking !== null}
         onOpenChange={(open) => {
-          if (!open) setConfirming(null)
+          if (!open) setRevoking(null)
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Revoke {confirming?.name}?</DialogTitle>
-            <DialogDescription>
-              Any app using this key stops sending events immediately. Events already received are
-              kept. This cannot be undone, so create the replacement key first if something is live.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setConfirming(null)
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void onRevoke()}
-              disabled={revoke.isPending}
-            >
-              {revoke.isPending ? 'Revoking' : 'Revoke key'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
+        title={`Revoke ${revoking?.name ?? 'this key'}?`}
+        description="Any app using this key stops sending events straight away. Events already received are kept. This cannot be undone, so create the replacement key first if something is live."
+        confirmLabel="Revoke key"
+        pendingLabel="Revoking key"
+        pending={revoke.isPending}
+        onConfirm={() => void onRevoke()}
+      />
+    </DataCard>
   )
 }

@@ -1,21 +1,32 @@
+import { ChartSpline, Globe, Inbox } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { useParams } from 'react-router'
-import { Link } from 'react-router'
+import { Link, useParams } from 'react-router'
+import { TimeSeriesChart } from '@/components/charts/time-series-chart'
+import { DataCard } from '@/components/data/data-card'
+import { DateRangePicker } from '@/components/data/date-range-picker'
+import { DeltaBadge } from '@/components/data/delta-badge'
+import { MetricStrip, type Metric } from '@/components/data/metric-strip'
+import { RankedCard } from '@/components/data/ranked-card'
 import { EmptyState } from '@/components/feedback/empty-state'
 import { ErrorState } from '@/components/feedback/error-state'
-import { ChartSkeleton, KpiRowSkeleton, TableSkeleton } from '@/components/feedback/skeletons'
-import { TimeSeriesChart } from '@/components/charts/time-series-chart'
-import { BarList } from '@/components/data/bar-list'
-import { DateRangePicker } from '@/components/data/date-range-picker'
-import { MetricCard } from '@/components/data/metric-card'
+import { ChartSkeleton, MetricStripSkeleton } from '@/components/feedback/skeletons'
 import { PageHeader } from '@/components/layout/page-header'
+import { Provenance } from '@/components/layout/provenance'
 import { Button } from '@/components/ui/button'
-import { useBreakdown, useSummary, useTimeseries, useTopEvents } from '@/features/analytics/api'
+import { Card } from '@/components/ui/card'
+import {
+  useBreakdown,
+  useSummary,
+  useTimeseries,
+  useTopEvents,
+  type Summary,
+} from '@/features/analytics/api'
 import { DEFAULT_PRESET, presetById } from '@/features/analytics/date-range'
-import { pivotSeries, totalsByBucket } from '@/features/analytics/pivot'
+import { pivotSeries } from '@/features/analytics/pivot'
 import { useProject } from '@/features/projects/api'
 import { formatDecimal, formatInteger } from '@/lib/format'
-import { timeZoneLabel } from '@/lib/tz'
+
+const RESOLUTION_LABELS: Record<string, string> = { hour: 'Hourly', day: 'Daily', week: 'Weekly' }
 
 export function OverviewRoute() {
   const { projectId = '' } = useParams<{ projectId: string }>()
@@ -31,205 +42,150 @@ export function OverviewRoute() {
 
   const timeZone = project.data?.timezone ?? summary.data?.timezone ?? 'Etc/UTC'
   const chart = useMemo(() => pivotSeries(timeseries.data ?? []), [timeseries.data])
-  const trend = useMemo(() => totalsByBucket(timeseries.data ?? []), [timeseries.data])
-
   const hasNoData = summary.isSuccess && summary.data.total_events === 0
 
   return (
     <>
       <PageHeader
         title="Overview"
-        meta={timeZoneLabel(timeZone)}
         actions={<DateRangePicker value={preset} onChange={setPreset} />}
-      />
+      >
+        <Provenance projectId={projectId} timeZone={timeZone} range={range} />
+      </PageHeader>
 
-      <div className="space-y-6 p-6">
+      <div className="flex flex-col gap-4 p-4 sm:gap-6 sm:p-6">
         {summary.isPending ? (
-          <KpiRowSkeleton />
+          <MetricStripSkeleton />
         ) : summary.isError ? (
           <ErrorState
+            className="p-0"
             title="The headline numbers did not load"
-            description="The aggregate query failed. Your events are unaffected; this is a read that can be retried."
+            description="Your events are safe; this is a read that failed. Try again, or pick a shorter range."
             error={summary.error}
             onRetry={() => void summary.refetch()}
           />
         ) : hasNoData ? (
-          <EmptyState
-            title="No events yet"
-            description="Install the snippet on your site to start collecting. This screen fills in within about five minutes of the first event."
-            action={
-              <Button asChild size="sm">
-                <Link to={`/p/${projectId}/settings?tab=install`}>Get the snippet</Link>
-              </Button>
-            }
-          />
+          <Card className="py-0">
+            <EmptyState
+              icon={Inbox}
+              title="No events yet"
+              description="Install the snippet on your site to start collecting. This screen fills in within about five minutes of the first event."
+              action={
+                <Button asChild>
+                  <Link to={`/p/${projectId}/settings?tab=install`}>Get the snippet</Link>
+                </Button>
+              }
+            />
+          </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard
-              label="Total events"
-              value={formatInteger(summary.data.total_events)}
-              current={summary.data.total_events}
-              previous={summary.data.prev_total_events}
-              trend={trend}
-              colorIndex={0}
-            />
-            <MetricCard
-              label="Unique users"
-              value={formatInteger(summary.data.unique_users)}
-              current={summary.data.unique_users}
-              previous={summary.data.prev_unique_users}
-              colorIndex={1}
-            />
-            <MetricCard
-              label="Sessions"
-              value={formatInteger(summary.data.sessions)}
-              current={summary.data.sessions}
-              previous={summary.data.prev_sessions}
-              colorIndex={2}
-            />
-            <MetricCard
-              label="Events per user"
-              value={formatDecimal(summary.data.events_per_user)}
-              current={summary.data.events_per_user}
-              previous={summary.data.prev_events_per_user}
-              colorIndex={3}
-            />
-          </div>
+          <MetricStrip metrics={headlineMetrics(summary.data)} />
         )}
 
-        <section className="rounded-md border bg-card">
-          <div className="flex items-center justify-between border-b px-4 py-2.5">
-            <h2 className="text-sm font-medium">Events over time</h2>
-            <span className="text-xs text-muted-foreground">
-              {chart.resolution === 'hour'
-                ? 'Hourly'
-                : chart.resolution === 'week'
-                  ? 'Weekly'
-                  : 'Daily'}
-            </span>
-          </div>
-
+        <DataCard
+          title="Events over time"
+          action={
+            chart.data.length > 0 ? (
+              <span className="text-xs text-muted-foreground">
+                {RESOLUTION_LABELS[chart.resolution] ?? 'Daily'}
+              </span>
+            ) : null
+          }
+        >
           {timeseries.isPending ? (
             <ChartSkeleton />
           ) : timeseries.isError ? (
             <ErrorState
               title="The chart did not load"
-              description="The time series query failed. Narrowing the date range sometimes helps if this repeats."
+              description="The time series query failed. Try again, or pick a shorter range."
               error={timeseries.error}
               onRetry={() => void timeseries.refetch()}
             />
           ) : chart.data.length === 0 ? (
             <EmptyState
+              icon={ChartSpline}
               title="Nothing in this range"
-              description="No events were recorded between these dates. Try a wider range."
+              description="No events were recorded between these dates. Pick a longer range above."
             />
           ) : (
-            <div className="p-2">
+            <div className="p-2 pt-4">
               <TimeSeriesChart
                 data={chart.data}
-                series={chart.series.slice(0, 6)}
+                series={chart.series}
                 timeZone={timeZone}
                 resolution={chart.resolution}
+                label={`Events over time, by event name, for ${presetById(preset).label.toLowerCase()}`}
               />
             </div>
           )}
-        </section>
+        </DataCard>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Panel
+        <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+          <RankedCard
             title="Top events"
             query={topEvents}
+            toItems={(rows) =>
+              rows.map((r) => ({ label: r.event_name, value: r.event_count, share: r.share }))
+            }
             emptyTitle="No events in this range"
-            emptyDescription="Once events arrive they are ranked here by volume."
-            render={(rows) => (
-              <BarList
-                items={rows.map((r) => ({
-                  label: r.event_name,
-                  value: r.event_count,
-                  share: r.share,
-                }))}
-              />
-            )}
+            emptyDescription="Events are ranked here by volume once they arrive."
           />
-
-          <Panel
+          <RankedCard
             title="Top pages"
             query={pages}
-            emptyTitle="No page views yet"
+            toItems={(rows) =>
+              rows.map((r) => ({ label: r.prop_value, value: r.event_count, share: r.share }))
+            }
+            emptyTitle="No page views in this range"
             emptyDescription="Call page() from the SDK to record which pages people visit."
-            render={(rows) => (
-              <BarList
-                items={rows.map((r) => ({
-                  label: r.prop_value,
-                  value: r.event_count,
-                  share: r.share,
-                }))}
-              />
-            )}
           />
         </div>
 
-        <Panel
+        <RankedCard
           title="Top countries"
+          icon={Globe}
           query={countries}
-          emptyTitle="No country data yet"
-          emptyDescription="Country is derived at the edge from the request, and appears once events arrive."
-          render={(rows) => (
-            <BarList
-              items={rows.map((r) => ({
-                label: r.prop_value,
-                value: r.event_count,
-                share: r.share,
-              }))}
-            />
-          )}
+          toItems={(rows) =>
+            rows.map((r) => ({ label: r.prop_value, value: r.event_count, share: r.share }))
+          }
+          emptyTitle="No country data in this range"
+          emptyDescription="Country is worked out from each request as it arrives, so it appears with the first events."
         />
       </div>
     </>
   )
 }
 
-interface PanelQuery<T> {
-  isPending: boolean
-  isError: boolean
-  error: unknown
-  data?: T[]
-  refetch: () => unknown
-}
+function headlineMetrics(summary: Summary): Metric[] {
+  const readout = (label: string, value: string, current: number, previous: number): Metric => ({
+    label,
+    value,
+    detail: (
+      <>
+        <DeltaBadge current={current} previous={previous} />
+        <span>vs previous period</span>
+      </>
+    ),
+  })
 
-/** Every panel ships the same three states, so they are written once here. */
-function Panel<T>({
-  title,
-  query,
-  emptyTitle,
-  emptyDescription,
-  render,
-}: {
-  title: string
-  query: PanelQuery<T>
-  emptyTitle: string
-  emptyDescription: string
-  render: (rows: T[]) => React.ReactNode
-}) {
-  return (
-    <section className="rounded-md border bg-card">
-      <div className="border-b px-4 py-2.5">
-        <h2 className="text-sm font-medium">{title}</h2>
-      </div>
-      {query.isPending ? (
-        <TableSkeleton rows={5} columns={2} />
-      ) : query.isError ? (
-        <ErrorState
-          title={`${title} did not load`}
-          description="This panel failed on its own; the rest of the page is unaffected."
-          error={query.error}
-          onRetry={() => void query.refetch()}
-        />
-      ) : !query.data || query.data.length === 0 ? (
-        <EmptyState title={emptyTitle} description={emptyDescription} />
-      ) : (
-        render(query.data)
-      )}
-    </section>
-  )
+  return [
+    readout(
+      'Total events',
+      formatInteger(summary.total_events),
+      summary.total_events,
+      summary.prev_total_events,
+    ),
+    readout(
+      'Unique users',
+      formatInteger(summary.unique_users),
+      summary.unique_users,
+      summary.prev_unique_users,
+    ),
+    readout('Sessions', formatInteger(summary.sessions), summary.sessions, summary.prev_sessions),
+    readout(
+      'Events per user',
+      formatDecimal(summary.events_per_user),
+      summary.events_per_user,
+      summary.prev_events_per_user,
+    ),
+  ]
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router'
+import { AuthLayout } from '@/components/layout/auth-layout'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { useAuth } from '@/features/auth/use-auth'
 
 /**
@@ -29,29 +31,27 @@ export function AuthCallbackRoute() {
 
   if (status === 'anonymous' || tooSlow) {
     return (
-      <main className="flex min-h-svh items-center justify-center p-6">
-        <div className="w-full max-w-sm text-center">
-          <p className="text-sm font-medium">This sign-in link did not work</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Links expire after an hour and can only be used once. Request a new one and it will
-            work.
-          </p>
-          <Button
-            className="mt-4"
-            onClick={() => {
-              void navigate('/sign-in', { replace: true })
-            }}
-          >
-            Back to sign in
-          </Button>
-        </div>
-      </main>
+      <AuthLayout
+        title="This sign-in link did not work"
+        description="Links expire after an hour and work only once. Request a new one from the sign-in screen."
+      >
+        <Button
+          onClick={() => {
+            void navigate('/sign-in', { replace: true })
+          }}
+        >
+          Back to sign in
+        </Button>
+      </AuthLayout>
     )
   }
 
   return (
-    <main className="flex min-h-svh items-center justify-center p-6">
-      <p className="text-sm text-muted-foreground">Signing you in</p>
-    </main>
+    <AuthLayout title="Signing you in">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+        <Spinner />
+        Checking your sign-in link
+      </p>
+    </AuthLayout>
   )
 }

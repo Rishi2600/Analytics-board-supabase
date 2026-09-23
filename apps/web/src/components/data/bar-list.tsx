@@ -7,26 +7,25 @@ export interface BarListItem {
 }
 
 /**
- * A ranked list with an inline proportion bar.
- *
- * This is what a pie chart should have been. It is sortable, it reads top to bottom, it
- * puts the exact number next to the label, and it stays legible past six categories.
+ * A ranked list with a proportion bar behind each row. What a pie chart should have been:
+ * it reads top to bottom, puts the exact number beside the label, and stays legible past six
+ * categories. Labels wrap rather than truncate, so a long path is always readable in full.
  */
-export function BarList({ items }: { items: BarListItem[] }) {
+export function BarList({ items, label }: { items: BarListItem[]; label: string }) {
   const max = Math.max(...items.map((i) => i.value), 1)
 
   return (
-    <ul className="divide-y divide-border">
+    <ul aria-label={label} className="flex flex-col py-1">
       {items.map((item) => (
-        <li key={item.label} className="relative flex items-center gap-3 px-4 py-2">
+        <li key={item.label} className="relative flex items-start gap-3 px-4 py-2 text-sm">
           <div
             aria-hidden
-            className="absolute inset-y-0 left-0 rounded-r-sm bg-primary/8"
-            style={{ width: `${String((item.value / max) * 100)}%` }}
+            className="absolute inset-y-0.5 left-2 rounded-sm bg-chart-1/12"
+            style={{ width: `calc(${String((item.value / max) * 100)}% - 1rem)` }}
           />
-          <span className="relative min-w-0 flex-1 truncate text-sm">{item.label}</span>
-          <span className="value relative text-sm">{formatInteger(item.value)}</span>
-          <span className="value relative w-14 text-right text-xs text-muted-foreground">
+          <span className="relative min-w-0 flex-1 wrap-anywhere">{item.label}</span>
+          <span className="value relative">{formatInteger(item.value)}</span>
+          <span className="value relative w-14 text-right text-muted-foreground">
             {formatPercent(item.share)}
           </span>
         </li>

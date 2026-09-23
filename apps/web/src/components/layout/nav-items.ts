@@ -1,4 +1,13 @@
-import { Activity, FileDown, Filter, Gauge, LayoutGrid, Radio, Settings, Users } from 'lucide-react'
+import {
+  Activity,
+  ChartSpline,
+  FileDown,
+  Funnel,
+  LayoutGrid,
+  Radio,
+  Repeat,
+  Settings,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface NavItem {
@@ -10,12 +19,15 @@ export interface NavItem {
   hint: string
 }
 
-export const NAV_ITEMS: NavItem[] = [
+export const ANALYSIS_ITEMS: NavItem[] = [
   { to: 'overview', label: 'Overview', icon: LayoutGrid, hint: 'Headline numbers and trend' },
-  { to: 'events', label: 'Events', icon: Filter, hint: 'Filter and break down events' },
+  { to: 'events', label: 'Events', icon: ChartSpline, hint: 'Filter and break down events' },
   { to: 'live', label: 'Live', icon: Radio, hint: 'Events arriving right now' },
-  { to: 'funnels', label: 'Funnels', icon: Gauge, hint: 'Step by step conversion' },
-  { to: 'retention', label: 'Retention', icon: Users, hint: 'Who comes back, and when' },
+  { to: 'funnels', label: 'Funnels', icon: Funnel, hint: 'Step by step conversion' },
+  { to: 'retention', label: 'Retention', icon: Repeat, hint: 'Who comes back, and when' },
+]
+
+export const PROJECT_ITEMS: NavItem[] = [
   { to: 'reports', label: 'Reports', icon: FileDown, hint: 'Export data as CSV or JSON' },
   {
     to: 'health',
@@ -25,3 +37,5 @@ export const NAV_ITEMS: NavItem[] = [
   },
   { to: 'settings', label: 'Settings', icon: Settings, hint: 'Project, keys, members, audit log' },
 ]
+
+export const NAV_ITEMS: NavItem[] = [...ANALYSIS_ITEMS, ...PROJECT_ITEMS]
