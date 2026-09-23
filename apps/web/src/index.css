@@ -28,6 +28,10 @@
   --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', monospace;
   --font-heading: var(--font-sans);
 
+  /* The KPI step of the type scale: the one number a readout exists to show. */
+  --text-kpi: 1.75rem;
+  --text-kpi--line-height: 1;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -74,11 +78,12 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* One small radius on everything. Not the 12px consumer-software look. */
+  /* One small radius on everything. Not the 12px consumer-software look. The shadcn
+     primitives ask for md, lg and xl in different places; all three resolve to 6px. */
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
 }
 
 :root {
@@ -95,11 +100,11 @@
   --primary: #10656b;
   --primary-foreground: #ffffff;
 
-  --secondary: #edeff2;
+  --secondary: #eef0f3;
   --secondary-foreground: #14181d;
-  --muted: #edeff2;
+  --muted: #eef0f3;
   --muted-foreground: #5e6773;
-  --accent: #e7eaee;
+  --accent: #eef0f3;
   --accent-foreground: #14181d;
 
   --destructive: #c23a33;
@@ -110,70 +115,73 @@
   --warn-foreground: #ffffff;
 
   --border: #dfe3e8;
-  --input: #dfe3e8;
+  /* Form controls need 3:1 against the surface; the hairline border is 1.3:1. */
+  --input: #858e99;
   --ring: #10656b;
 
-  --chart-1: #1f8a8a;
-  --chart-2: #e0821c;
+  /* Data. Series 1 is blue, well away from the teal accent. Series 6 is slate, for the tail. */
+  --chart-1: #2f6fdb;
+  --chart-2: #d9771a;
   --chart-3: #7b5bd6;
   --chart-4: #d64570;
-  --chart-5: #4c8df6;
-  --chart-6: #6e8f2e;
+  --chart-5: #5f8a2a;
+  --chart-6: #6b7a8c;
 
   --sidebar: #ffffff;
   --sidebar-foreground: #14181d;
   --sidebar-primary: #10656b;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edeff2;
+  --sidebar-accent: #eef0f3;
   --sidebar-accent-foreground: #14181d;
   --sidebar-border: #dfe3e8;
   --sidebar-ring: #10656b;
 }
 
+/* Dark is a graphite with a blue-slate cast, tuned by hand rather than inverted. */
 .dark {
-  --background: #0d1013;
-  --foreground: #e6eaee;
-  --card: #161a1e;
-  --card-foreground: #e6eaee;
-  --popover: #161a1e;
-  --popover-foreground: #e6eaee;
+  --background: #11161b;
+  --foreground: #e4e9ee;
+  --card: #181e24;
+  --card-foreground: #e4e9ee;
+  --popover: #181e24;
+  --popover-foreground: #e4e9ee;
 
   /* A different colour, not the light accent lightened. */
   --primary: #3fb8b2;
-  --primary-foreground: #0d1013;
+  --primary-foreground: #11161b;
 
-  --secondary: #1d2228;
-  --secondary-foreground: #e6eaee;
-  --muted: #1d2228;
-  --muted-foreground: #8d97a3;
-  --accent: #222930;
-  --accent-foreground: #e6eaee;
+  --secondary: #1f262d;
+  --secondary-foreground: #e4e9ee;
+  --muted: #1f262d;
+  --muted-foreground: #8f9aa6;
+  --accent: #222a32;
+  --accent-foreground: #e4e9ee;
 
   --destructive: #e4655c;
-  --destructive-foreground: #0d1013;
+  --destructive-foreground: #11161b;
   --ok: #4caf72;
-  --ok-foreground: #0d1013;
+  --ok-foreground: #11161b;
   --warn: #d9932f;
-  --warn-foreground: #0d1013;
+  --warn-foreground: #11161b;
 
-  --border: #262c33;
-  --input: #262c33;
+  --border: #2a323b;
+  --input: #66707c;
   --ring: #3fb8b2;
 
-  --chart-1: #37a8a8;
+  --chart-1: #6b9bf2;
   --chart-2: #f0a04b;
-  --chart-3: #9b81e8;
-  --chart-4: #e8738c;
-  --chart-5: #6fa6ff;
-  --chart-6: #8fb349;
+  --chart-3: #a08bea;
+  --chart-4: #ec7d95;
+  --chart-5: #8fb349;
+  --chart-6: #97a4b4;
 
-  --sidebar: #161a1e;
-  --sidebar-foreground: #e6eaee;
+  --sidebar: #151a20;
+  --sidebar-foreground: #e4e9ee;
   --sidebar-primary: #3fb8b2;
-  --sidebar-primary-foreground: #0d1013;
-  --sidebar-accent: #222930;
-  --sidebar-accent-foreground: #e6eaee;
-  --sidebar-border: #262c33;
+  --sidebar-primary-foreground: #11161b;
+  --sidebar-accent: #222a32;
+  --sidebar-accent-foreground: #e4e9ee;
+  --sidebar-border: #2a323b;
   --sidebar-ring: #3fb8b2;
 }
 
@@ -216,17 +224,29 @@
 }
 
 @layer components {
-  /* The structural signature: a 2px accent rule on the left edge of the
-       active navigation item. Nothing else in the product uses a left rule,
-       so it means exactly one thing. */
-  .nav-active {
-    box-shadow: inset 2px 0 0 0 var(--primary);
+  /* The structural signature: a 2px accent rule on the left edge of the active
+     navigation item. Nothing else in the product uses a left rule. */
+  [data-sidebar='menu-button'][data-active='true'] {
+    box-shadow: inset 2px 0 0 0 var(--sidebar-primary);
   }
 
-  /* Values, not labels. Applied to KPI numbers and numeric table cells. */
+  /* Values, not labels. KPI numbers and numeric table cells only. */
   .value {
     @apply font-mono;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+  }
+
+  /* Row actions appear on hover and on keyboard focus within the row. On a device that
+     cannot hover they are always visible, because there is nothing to reveal them. */
+  @media (hover: hover) {
+    .row-actions {
+      opacity: 0;
+      transition: opacity 120ms ease-out;
+    }
+    .group\/row:hover .row-actions,
+    .group\/row:focus-within .row-actions {
+      opacity: 1;
+    }
   }
 }

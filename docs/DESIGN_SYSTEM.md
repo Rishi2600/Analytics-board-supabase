@@ -33,7 +33,7 @@ classes such as `bg-card` and `text-muted-foreground`, never raw colors and neve
 | surface         | `#FFFFFF` | `#181E24` | cards, tables, popovers                |
 | muted surface   | `#EEF0F3` | `#1F262D` | hover rows, code blocks, tab rails     |
 | border          | `#DFE3E8` | `#2A323B` | hairlines, one weight only             |
-| input border    | `#8B949F` | `#5B6570` | form controls, 3:1 against the surface |
+| input border    | `#858E99` | `#66707C` | form controls, 3:1 against the surface |
 | text            | `#14181D` | `#E4E9EE` | reading color                          |
 | muted text      | `#5E6773` | `#8F9AA6` | labels, axis ticks, meta               |
 | accent (petrol) | `#10656B` | `#3FB8B2` | interactive affordances only           |
