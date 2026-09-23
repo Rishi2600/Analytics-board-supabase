@@ -46,6 +46,9 @@ export function useCreateExport(projectId: string) {
       format: ExportRecord['format']
       from: Date
       to: Date
+      /** Breakdown exports only: the property to split by, and optionally one event. */
+      prop?: string
+      event?: string
     }) => {
       const { data: session } = await supabase.auth.getUser()
 
@@ -57,7 +60,12 @@ export function useCreateExport(projectId: string) {
           project_id: projectId,
           kind: input.kind,
           format: input.format,
-          params: { from: input.from.toISOString(), to: input.to.toISOString() },
+          params: {
+            from: input.from.toISOString(),
+            to: input.to.toISOString(),
+            ...(input.prop ? { prop: input.prop } : {}),
+            ...(input.event ? { event: input.event } : {}),
+          },
           requested_by: session.user?.id,
         })
         .select('id')
