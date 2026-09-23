@@ -88,7 +88,9 @@ export function ExportsTable({ projectId }: { projectId: string }) {
                     {labelFor(EXPORT_STATUS_LABELS, record.status)}
                   </StatusBadge>
                   {record.error ? (
-                    <p className="mt-1 max-w-sm text-xs text-muted-foreground">{record.error}</p>
+                    <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+                      {readableExportError(record.error)} Create the export again to retry.
+                    </p>
                   ) : null}
                 </TableCell>
                 <TableCell className="value border-l text-right">
@@ -121,4 +123,15 @@ export function ExportsTable({ projectId }: { projectId: string }) {
       )}
     </DataCard>
   )
+}
+
+/** Older failures were stored as a JSON-encoded database error. Show only its message. */
+function readableExportError(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw) as { message?: unknown }
+    if (typeof parsed.message === 'string') return `${parsed.message}.`
+  } catch {
+    // Not JSON: already a plain message.
+  }
+  return raw.endsWith('.') ? raw : `${raw}.`
 }

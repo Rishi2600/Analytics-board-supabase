@@ -95,12 +95,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     return jsonResponse({ export_id: job.id, row_count: rowCount, storage_path: path }, 200)
   } catch (error) {
+    // Database errors are plain objects with a message, not Error instances. The message is
+    // what the Reports screen shows, so it is stored on its own rather than as JSON.
     const message =
       error instanceof Error
         ? error.message
-        : typeof error === 'object' && error !== null
-          ? JSON.stringify(error)
-          : String(error)
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : typeof error === 'object' && error !== null
+            ? JSON.stringify(error)
+            : String(error)
 
     // The row is marked failed with the reason, so the customer sees why on the reports
     // screen instead of an export that sits at "running" forever.
