@@ -38,11 +38,18 @@ export function MembersPanel({ orgId }: { orgId: string }) {
   const removeMember = useRemoveMember(orgId)
   const [inviting, setInviting] = useState(false)
   const [removing, setRemoving] = useState<OrgMember | null>(null)
+  // Changing your own role can lock you out of this screen, and only someone else can undo
+  // it, so that one change asks first. Other people's roles change straight away.
+  const [ownRole, setOwnRole] = useState<OrgMember['role'] | null>(null)
+  const me = members.data?.find((m) => m.user_id === user?.id)
 
   const onRoleChange = (member: OrgMember, role: OrgMember['role']) => {
     updateRole.mutate(
       { userId: member.user_id, role },
       {
+        onSettled: () => {
+          setOwnRole(null)
+        },
         onSuccess: () =>
           toast.success(`${member.email} is now ${ROLE_LABELS[role]?.toLowerCase() ?? role}`),
         onError: (error) => toast.error(errorMessage(error)),
@@ -114,7 +121,8 @@ export function MembersPanel({ orgId }: { orgId: string }) {
                   <Select
                     value={member.role}
                     onValueChange={(role) => {
-                      onRoleChange(member, role as OrgMember['role'])
+                      if (member.user_id === user?.id) setOwnRole(role as OrgMember['role'])
+                      else onRoleChange(member, role as OrgMember['role'])
                     }}
                   >
                     <SelectTrigger
@@ -158,6 +166,21 @@ export function MembersPanel({ orgId }: { orgId: string }) {
       )}
 
       <InviteDialog orgId={orgId} open={inviting} onOpenChange={setInviting} />
+
+      <ConfirmDialog
+        open={ownRole !== null}
+        onOpenChange={(open) => {
+          if (!open) setOwnRole(null)
+        }}
+        title={`Make yourself ${ROLE_LABELS[ownRole ?? 'viewer']?.toLowerCase() ?? ''}?`}
+        description="Your access changes straight away. If this role cannot manage people, you will not be able to change it back; someone else in the organization will have to."
+        confirmLabel="Change my role"
+        pendingLabel="Changing role"
+        pending={updateRole.isPending}
+        onConfirm={() => {
+          if (me && ownRole) onRoleChange(me, ownRole)
+        }}
+      />
 
       <ConfirmDialog
         open={removing !== null}

@@ -23,6 +23,16 @@ export function useOrgMembers(orgId: string | undefined) {
 
 const NOT_ALLOWED = 'Only an owner or admin can change who is in this organization.'
 
+/** The database's last-owner rule, said so the person knows what to do about it. */
+function readableMemberError(error: { message: string }): Error {
+  if (error.message.includes('at least one owner')) {
+    return new Error(
+      'This organization needs at least one owner. Make someone else an owner first, then try again.',
+    )
+  }
+  return new Error(error.message)
+}
+
 export function useUpdateMemberRole(orgId: string) {
   const queryClient = useQueryClient()
   return useMutation({
@@ -33,7 +43,7 @@ export function useUpdateMemberRole(orgId: string) {
         .eq('org_id', orgId)
         .eq('user_id', input.userId)
         .select('user_id')
-      if (error) throw error
+      if (error) throw readableMemberError(error)
       // Row level security turns a change you may not make into a change of zero rows.
       if (data.length === 0) throw new Error(NOT_ALLOWED)
     },
@@ -54,7 +64,7 @@ export function useRemoveMember(orgId: string) {
         .eq('org_id', orgId)
         .eq('user_id', userId)
         .select('user_id')
-      if (error) throw error
+      if (error) throw readableMemberError(error)
       if (data.length === 0) throw new Error(NOT_ALLOWED)
     },
     onSuccess: async () => {
