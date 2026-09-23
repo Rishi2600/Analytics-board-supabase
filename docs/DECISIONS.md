@@ -349,3 +349,28 @@ skill's upstream update path: `npx skills update design-review` would restore bo
 so the skill is pinned and any future update is re-audited by hand before it is accepted.
 `skills-lock.json` records the upstream hash, which no longer matches the working copy, and
 that mismatch is intentional.
+
+---
+
+## ADR-0013 - Three read functions run as definer and check access themselves
+
+**Status:** accepted, 2026-09-23
+
+**Context.** `api.summary`, `api.funnel` and `api.retention` were security invoker, so row
+level security evaluated `authz.can_read_project(project_id)` for every row they scanned.
+Measured as the `authenticated` role against 1.7M events: summary took 91 seconds, funnel 43
+seconds, retention over 60 and was cancelled. The Overview headline numbers, Funnels and
+Retention never loaded in a browser. The earlier measurements in `docs/ARCHITECTURE.md` were
+taken in psql as a superuser, which bypasses row level security, so they never showed it.
+
+**Decision.** Those three run as security definer with `search_path` pinned to empty, and
+each calls `authz.can_read_project(p_project)` once, first, returning no rows when it fails.
+This is the pattern `api.rollup_status` already used. `anon` has no execute grant on them.
+Every other `api` function stays security invoker, because it reads small rollup tables
+where per-row policies cost nothing measurable.
+
+**Consequences.** For these three functions the tenancy guarantee moves from the policies to
+one explicit check, so it is only as good as that check. Three tests in
+`tests/rls-tenancy.test.ts` hold it: another organization gets nothing, the owner gets data,
+and a caller with no session is refused. A new definer function must copy the check and the
+test, and review should look for both.

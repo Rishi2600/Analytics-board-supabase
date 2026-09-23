@@ -123,24 +123,32 @@ write ahead logging for on every entry.
 
 ## Performance
 
-Measured on this machine against **1,000,109 seeded events** across 90 days, 5,555 users,
-12,560 hourly rollup rows, 195,533 user-day rows and 299,616 session-day rows. Three warm
-runs each; plans are in `docs/measurements/`.
+Measured on 2026-09-23 against **1,726,456 seeded events** as the `authenticated` role, the
+way a browser calls these functions, with row level security in force. Five warm runs each,
+at the range each screen uses.
 
-| Function                   | Warm runs         | What dominates                                                |
-| -------------------------- | ----------------- | ------------------------------------------------------------- |
-| `api.summary`              | 286 / 267 / 275ms | four distinct counts; the two session counts are ~150ms of it |
-| `api.retention` (8 weeks)  | 251 / 251 / 254ms | cohort assignment over `events_raw`                           |
-| `api.funnel` (4 steps)     | 163 / 150 / 136ms | per user index lookups on `events_raw`                        |
-| `api.timeseries` (30 days) | 6.5 / 3.8 / 3.7ms | 12,560 hourly rollup rows                                     |
-| `api.top_events`           | 5.0 / 3.1 / 2.9ms | grouped rollup scan                                           |
-| `api.breakdown`            | 3.0 / 0.6 / 0.5ms | property rollup index scan                                    |
-| `api.live_events`          | 1.7 / 0.3 / 0.3ms | index scan, 100 rows                                          |
-| `jobs.run_rollups` (full)  | 17.8s             | one off, aggregating all 1M events                            |
+| Function                        | Warm runs (ms)              | Notes                               |
+| ------------------------------- | --------------------------- | ----------------------------------- |
+| `api.summary`, 7 days (default) | 56 / 41 / 40 / 38 / 37      | the overview headline numbers       |
+| `api.summary`, 30 days          | 325 / 289 / 336 / 321 / 288 | on the budget line, see below       |
+| `api.summary`, 90 days          | 229 / 199 / 197 / 222 / 203 | session-ordered index, ADR-0013     |
+| `api.funnel`, 3 steps, 30 days  | 281 / 243 / 256 / 365 / 245 | per user lookups on `events_raw`    |
+| `api.retention`, 8 weeks        | 288 / 295 / 290 / 295 / 308 | cohort assignment over `events_raw` |
+| `api.breakdown`                 | 7 / 4 / 4 / 4 / 4           | property rollup index scan          |
+| `api.timeseries`, 7 days        | 60                          | hourly rollup rows                  |
+| `api.top_events`, 7 days        | 58                          | grouped rollup scan                 |
+| `api.live_events`               | 16                          | index scan, 100 rows                |
 
-Everything is inside the 300ms budget. **`api.summary` and `api.retention` are inside it
-without much room**, and that is worth stating rather than rounding away, because summary
-runs on every overview page load.
+Before ADR-0013 the first three took 91s, 43s and over 60s for a signed-in user, because
+row level security ran a policy function per row. The numbers this section used to show were
+taken in psql as a superuser, which skips row level security entirely.
+
+**`api.summary` over 30 days sits on the 300ms budget**, as it did at one million events.
+Nearly all of it is the two distinct session counts: sessions are almost unique per day, so
+a month is a distinct count over roughly 160,000 values per period. Raising `work_mem` for
+the function was tried and made the 90 day case slower, because the planner switched back to
+hashing. The real fix is a daily session count table with a correction for sessions that
+cross midnight, which is a new table and is listed in the deferred section.
 
 ### A measurement mistake worth recording
 
@@ -182,14 +190,21 @@ npx supabase start
 node scripts/bootstrap-demo.ts                       # prints a project id
 node scripts/seed-events.ts --project <id> --events 1000000
 psql "$(npx supabase status -o env | grep DB_URL | cut -d'"' -f2)" \
-  -c "analyze" -c "select jobs.run_rollups()" -c "\timing on" \
+  -c "analyze" -c "select jobs.run_rollups()" \
+  -c "set role authenticated" \
+  -c "set request.jwt.claims = '{\"sub\":\"<user id>\",\"role\":\"authenticated\"}'" \
+  -c "\timing on" \
   -c "select * from api.summary('<id>', now() - interval '30 days', now())"
 ```
 
+Time as a signed-in user, as above. Timing as `postgres` skips row level security and will
+report numbers no browser ever sees.
+
 ## Correctness checks that run in CI
 
-- Two organizations cannot see each other's data. 24 assertions across tables, roles and
-  write paths, using real sessions rather than inspection.
+- Two organizations cannot see each other's data. Assertions across tables, roles, write
+  paths and the security definer read functions, using real sessions rather than
+  inspection.
 - Replaying an ingest batch twice produces one event.
 - A 21 day late event lands in its correct historical bucket.
 - Rollup totals equal raw event counts exactly.

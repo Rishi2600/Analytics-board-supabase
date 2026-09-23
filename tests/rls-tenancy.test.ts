@@ -225,6 +225,93 @@ describe('the audit log cannot be forged or erased by the client it describes', 
   })
 })
 
+describe('the read functions check access themselves', () => {
+  // summary, funnel and retention run as security definer, so row level security does not
+  // protect them. Each checks authz.can_read_project() first. These prove that check holds,
+  // and that it lets the rightful owner through.
+  const range = {
+    p_from: new Date(Date.now() - 30 * 86_400_000).toISOString(),
+    p_to: new Date(Date.now() + 3_600_000).toISOString(),
+  }
+
+  beforeAll(async () => {
+    const inserted = await adminClient()
+      .from('events_raw')
+      .insert([
+        {
+          project_id: bobOrg.projectId,
+          event_name: 'signup',
+          distinct_id: 'u1',
+          ts: new Date(Date.now() - 3_600_000).toISOString(),
+        },
+        {
+          project_id: bobOrg.projectId,
+          event_name: 'upgrade',
+          distinct_id: 'u1',
+          ts: new Date(Date.now() - 1_800_000).toISOString(),
+        },
+      ])
+    if (inserted.error) throw inserted.error
+  })
+
+  it('returns nothing from another organization project', async () => {
+    const api = alice.client.schema('api')
+    const summary = await api.rpc('summary', { p_project: bobOrg.projectId, ...range })
+    const funnel = await api.rpc('funnel', {
+      p_project: bobOrg.projectId,
+      p_steps: ['signup', 'upgrade'],
+      ...range,
+    })
+    const retention = await api.rpc('retention', {
+      p_project: bobOrg.projectId,
+      p_cohort_event: 'signup',
+      p_return_event: 'upgrade',
+      ...range,
+    })
+
+    expect(summary.error).toBeNull()
+    expect(summary.data).toEqual([])
+    expect(funnel.error).toBeNull()
+    expect(funnel.data).toEqual([])
+    expect(retention.error).toBeNull()
+    expect(retention.data).toEqual([])
+  })
+
+  it('answers the organization that owns the project', async () => {
+    const api = bob.client.schema('api')
+    const summary = await api.rpc('summary', { p_project: bobOrg.projectId, ...range })
+    const funnel = await api.rpc('funnel', {
+      p_project: bobOrg.projectId,
+      p_steps: ['signup', 'upgrade'],
+      ...range,
+    })
+    const retention = await api.rpc('retention', {
+      p_project: bobOrg.projectId,
+      p_cohort_event: 'signup',
+      p_return_event: 'upgrade',
+      ...range,
+    })
+
+    expect(summary.data).toHaveLength(1)
+    expect(funnel.data?.map((step) => Number(step.users))).toEqual([1, 1])
+    expect(retention.data?.length).toBeGreaterThan(0)
+  })
+
+  it('refuses a caller with no session', async () => {
+    const { apiUrl, anonKey } = localStack()
+    const response = await fetch(`${apiUrl}/rest/v1/rpc/summary`, {
+      method: 'POST',
+      headers: {
+        apikey: anonKey,
+        'Content-Type': 'application/json',
+        'Content-Profile': 'api',
+      },
+      body: JSON.stringify({ p_project: bobOrg.projectId, ...range }),
+    })
+    expect(response.ok).toBe(false)
+  })
+})
+
 describe('structural guarantees', () => {
   it('keeps at least one owner in an organization', async () => {
     const attempt = await alice.client
