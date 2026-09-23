@@ -17,6 +17,7 @@ import { RejectionReasonsCard } from '@/features/analytics/rejection-reasons-car
 import { KeysSendingCard } from '@/features/keys/keys-sending-card'
 import { useProject } from '@/features/projects/api'
 import { formatDuration, formatInteger, formatRelative } from '@/lib/format'
+import { formatInProjectZone } from '@/lib/tz'
 
 /** Rollups run every five minutes. Past three missed runs, the numbers are stale. */
 const STALE_AFTER_SECONDS = 15 * 60
@@ -79,7 +80,9 @@ export function HealthRoute() {
     },
     {
       label: 'Last rollup',
-      value: rollup.data?.last_run_at ? formatRelative(rollup.data.last_run_at) : 'Never',
+      value: rollup.data?.last_run_at
+        ? formatInProjectZone(rollup.data.last_run_at, timeZone, 'HH:mm')
+        : 'Never',
       detail:
         rollup.data?.last_status === 'failed' ? (
           <>
@@ -87,7 +90,10 @@ export function HealthRoute() {
             <span className="wrap-anywhere">{rollup.data.last_error ?? 'No reason recorded'}</span>
           </>
         ) : rollup.data?.last_status ? (
-          <StatusBadge tone="ok">Succeeded</StatusBadge>
+          <>
+            <StatusBadge tone="ok">Succeeded</StatusBadge>
+            <span>{formatRelative(rollup.data.last_run_at)}</span>
+          </>
         ) : null,
     },
   ]

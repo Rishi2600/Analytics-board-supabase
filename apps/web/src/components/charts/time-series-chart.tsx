@@ -54,7 +54,15 @@ export function TimeSeriesChart({ data, series, timeZone, resolution, label, cla
     return { visible, config, rows }
   }, [data, series])
 
-  const tickPattern = TICK_PATTERNS[resolution] ?? 'd MMM'
+  // Hourly ticks across several days need the date, or "01:30" could be any of them.
+  const first = data[0]?.bucket
+  const last = data[data.length - 1]?.bucket
+  const spansDays =
+    first !== undefined &&
+    last !== undefined &&
+    Date.parse(last) - Date.parse(first) > 36 * 3_600_000
+  const tickPattern =
+    resolution === 'hour' && spansDays ? 'd MMM HH:mm' : (TICK_PATTERNS[resolution] ?? 'd MMM')
   const tooltipPattern = resolution === 'hour' ? 'd MMM, HH:mm' : 'EEE d MMM yyyy'
 
   return (
