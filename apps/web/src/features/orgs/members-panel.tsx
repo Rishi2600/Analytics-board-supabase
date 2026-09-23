@@ -97,7 +97,7 @@ export function MembersPanel({ orgId }: { orgId: string }) {
             <TableRow>
               <TableHead className="pl-4">Email</TableHead>
               <TableHead>Role</TableHead>
-              <TableHead>Joined</TableHead>
+              <TableHead className="hidden sm:table-cell">Joined</TableHead>
               <TableHead className="pr-4">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -135,7 +135,7 @@ export function MembersPanel({ orgId }: { orgId: string }) {
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
                   {formatRelative(member.created_at)}
                 </TableCell>
                 <TableCell className="pr-4 text-right">

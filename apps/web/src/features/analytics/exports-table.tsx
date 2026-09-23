@@ -44,6 +44,23 @@ export function ExportsTable({ projectId }: { projectId: string }) {
     }
   }
 
+  const downloadButton = (record: ExportRecord) =>
+    record.status === 'done' ? (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={downloading === record.id}
+        onClick={() => void onDownload(record.id)}
+      >
+        {downloading === record.id ? (
+          <Spinner data-icon="inline-start" />
+        ) : (
+          <Download data-icon="inline-start" />
+        )}
+        Download
+      </Button>
+    ) : null
+
   return (
     <DataCard title="Recent exports">
       {exports.isPending ? (
@@ -67,9 +84,9 @@ export function ExportsTable({ projectId }: { projectId: string }) {
             <TableRow>
               <TableHead className="pl-4">What</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="border-l text-right">Rows</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="pr-4">
+              <TableHead className="hidden border-l text-right sm:table-cell">Rows</TableHead>
+              <TableHead className="hidden sm:table-cell">Created</TableHead>
+              <TableHead className="hidden pr-4 sm:table-cell">
                 <span className="sr-only">Download</span>
               </TableHead>
             </TableRow>
@@ -77,13 +94,18 @@ export function ExportsTable({ projectId }: { projectId: string }) {
           <TableBody>
             {exports.data.map((record) => (
               <TableRow key={record.id}>
-                <TableCell className="pl-4 font-medium">
+                <TableCell className="pl-4 align-top font-medium whitespace-normal">
                   {labelFor(EXPORT_KIND_LABELS, record.kind)}{' '}
                   <span className="font-normal text-muted-foreground">
                     {record.format.toUpperCase()}
                   </span>
+                  {/* On a phone the columns to the right are hidden, so their content moves here. */}
+                  <div className="mt-1 flex flex-col items-start gap-2 font-normal text-muted-foreground sm:hidden">
+                    <span>{formatRelative(record.created_at)}</span>
+                    {downloadButton(record)}
+                  </div>
                 </TableCell>
-                <TableCell className="whitespace-normal">
+                <TableCell className="align-top whitespace-normal">
                   <StatusBadge tone={STATUS_TONE[record.status]}>
                     {labelFor(EXPORT_STATUS_LABELS, record.status)}
                   </StatusBadge>
@@ -93,28 +115,14 @@ export function ExportsTable({ projectId }: { projectId: string }) {
                     </p>
                   ) : null}
                 </TableCell>
-                <TableCell className="value border-l text-right">
+                <TableCell className="value hidden border-l text-right sm:table-cell">
                   {record.row_count === null ? '-' : formatInteger(record.row_count)}
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
                   {formatRelative(record.created_at)}
                 </TableCell>
-                <TableCell className="pr-4 text-right">
-                  {record.status === 'done' ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={downloading === record.id}
-                      onClick={() => void onDownload(record.id)}
-                    >
-                      {downloading === record.id ? (
-                        <Spinner data-icon="inline-start" />
-                      ) : (
-                        <Download data-icon="inline-start" />
-                      )}
-                      Download
-                    </Button>
-                  ) : null}
+                <TableCell className="hidden pr-4 text-right sm:table-cell">
+                  {downloadButton(record)}
                 </TableCell>
               </TableRow>
             ))}

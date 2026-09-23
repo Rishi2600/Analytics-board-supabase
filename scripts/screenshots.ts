@@ -73,22 +73,16 @@ const SCREENS: Screen[] = [
   { name: 'health', path: 'health', states: DATA_STATES },
   { name: 'settings', path: 'settings', states: DATA_STATES },
 
-  // The other settings tabs carry most of the screen's interface, so they are captured
-  // too. At desktop width only: they are the same components the narrow pass already
-  // covers on the install tab.
+  // The other settings tabs carry most of the screen's interface, so they are captured too.
+  // Keys and members have row actions, so they are checked at phone width as well.
   {
     name: 'settings-project',
     path: 'settings?tab=project',
     states: ONE_STATE,
     viewports: ['1440'],
   },
-  { name: 'settings-keys', path: 'settings?tab=keys', states: ONE_STATE, viewports: ['1440'] },
-  {
-    name: 'settings-members',
-    path: 'settings?tab=members',
-    states: ONE_STATE,
-    viewports: ['1440'],
-  },
+  { name: 'settings-keys', path: 'settings?tab=keys', states: ONE_STATE },
+  { name: 'settings-members', path: 'settings?tab=members', states: ONE_STATE },
   { name: 'settings-audit', path: 'settings?tab=audit', states: ONE_STATE, viewports: ['1440'] },
 
   { name: 'onboarding', path: '/onboarding', absolute: true, states: ONE_STATE },

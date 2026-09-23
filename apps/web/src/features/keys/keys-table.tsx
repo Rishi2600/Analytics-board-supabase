@@ -77,9 +77,9 @@ export function KeysTable({ projectId }: { projectId: string }) {
           <TableHeader>
             <TableRow>
               <TableHead className="pl-4">Name</TableHead>
-              <TableHead>Prefix</TableHead>
+              <TableHead className="hidden sm:table-cell">Prefix</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Last used</TableHead>
+              <TableHead className="hidden sm:table-cell">Last used</TableHead>
               <TableHead className="pr-4">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -90,8 +90,12 @@ export function KeysTable({ projectId }: { projectId: string }) {
               <TableRow key={key.id} className="group/row">
                 <TableCell className="pl-4 font-medium wrap-anywhere whitespace-normal">
                   {key.name}
+                  {/* The prefix and last use move under the name on a phone. */}
+                  <span className="mt-0.5 block font-mono text-xs font-normal text-muted-foreground sm:hidden">
+                    {key.key_prefix}
+                  </span>
                 </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">
+                <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
                   {key.key_prefix}
                 </TableCell>
                 <TableCell>
@@ -99,7 +103,7 @@ export function KeysTable({ projectId }: { projectId: string }) {
                     {key.key_type === 'secret' ? 'Secret' : 'Public'}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
                   {key.revoked_at ? (
                     <StatusBadge tone="neutral">Revoked</StatusBadge>
                   ) : key.last_used_at ? (
